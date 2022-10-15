@@ -1,0 +1,2 @@
+defmodule Journey do
+end
