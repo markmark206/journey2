@@ -1,12 +1,16 @@
 defmodule Journey.Execution do
-  defstruct [
-    :id,
-    :process_id,
-    :computations
-  ]
+  # defstruct [
+  #  :id,
+  #  :process_id,
+  #  :computations
+  # ]
 
-  def set_value(execution, _step, _value) do
-    execution
+  def new(process_id) do
+    Journey.Execution.Store.create_initial_record(process_id)
+  end
+
+  def set_value(execution, step, value) do
+    Journey.Execution.Store.set_value(execution, step, value)
   end
 
   def reload(execution) do

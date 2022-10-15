@@ -4,6 +4,7 @@ defmodule Journey.Repo.Migrations.Initial do
   def change do
     create table(:executions, primary_key: false) do
       add(:id, :string, primary_key: true)
+      add(:process_id, :string)
       timestamps(type: :bigint)
     end
 
@@ -14,7 +15,6 @@ defmodule Journey.Repo.Migrations.Initial do
       add(:scheduled_time, :integer)
       add(:start_time, :bigint)
       add(:end_time, :bigint)
-      add(:revision, :integer)
       add(:result_code, :string)
       add(:result_value, :map)
       timestamps(type: :bigint)

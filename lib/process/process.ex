@@ -9,7 +9,20 @@ defmodule Journey.Process do
           steps: list()
         }
 
-  def start(_itinerary) do
-    %{id: "123"}
+  defp prepend_with_start_time(itinerary) do
+    %{itinerary | steps: [%Journey.Process.Step{name: :started_at}] ++ itinerary.steps}
+  end
+
+  def start(itinerary) do
+    itinerary =
+      itinerary
+      |> prepend_with_start_time()
+      |> Journey.ProcessCatalog.register()
+
+    _execution =
+      itinerary.process_id
+      |> Journey.Execution.new()
+      |> Journey.Execution.set_value(:started_at, Journey.Utilities.curent_unix_time_sec())
+      |> dbg()
   end
 end
