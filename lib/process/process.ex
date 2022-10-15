@@ -10,6 +10,7 @@ defmodule Journey.Process do
         }
 
   defp prepend_with_start_time(itinerary) do
+    # Each process includes the "started at" timestamp, holding the execution's start time.
     %{itinerary | steps: [%Journey.Process.Step{name: :started_at}] ++ itinerary.steps}
   end
 
@@ -23,6 +24,5 @@ defmodule Journey.Process do
       itinerary.process_id
       |> Journey.Execution.new()
       |> Journey.Execution.set_value(:started_at, Journey.Utilities.curent_unix_time_sec())
-      |> dbg()
   end
 end

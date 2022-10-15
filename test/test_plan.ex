@@ -25,7 +25,7 @@ defmodule Journey.Test.UserJourney do
           func: &Journey.Test.UserJourney.user_lifetime_completed/1,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},
-            %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided}
+            %Journey.Process.BlockedBy{step_name: :morning_update, condition: :provided}
           ]
         }
       ]

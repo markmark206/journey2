@@ -8,7 +8,6 @@ defmodule Journey.Test.Lifetime do
     execution =
       Journey.Test.UserJourney.itinerary()
       |> Journey.Process.start()
-      |> dbg()
 
     assert execution
 
@@ -16,7 +15,6 @@ defmodule Journey.Test.Lifetime do
     execution =
       execution
       |> Journey.Execution.set_value(:user_id, "user1")
-      |> dbg()
 
     assert execution
 
@@ -45,13 +43,14 @@ defmodule Journey.Test.Lifetime do
     end
   end
 
-  defp wait_for_result_to_compute(execution, task) do
+  #  defp find_computation(computations, step_name) do
+  #    Enum.find(fn c -> c.name == step_name end)
+  #  end
+
+  defp wait_for_result_to_compute(execution, step_name) do
     case WaitForIt.wait(
            Journey.Execution.reload(execution)
-           |> then(fn _ex ->
-             # TODO: get status for task.
-             :some_state
-           end) ==
+           |> Journey.Execution.get_computation_status(step_name) ==
              :computed,
            timeout: 5_000,
            frequency: 1000
@@ -62,7 +61,7 @@ defmodule Journey.Test.Lifetime do
       {:timeout, _timeout} ->
         execution = Journey.Execution.reload(execution)
         execution |> Journey.Execution.get_summary() |> IO.puts()
-        assert false, "step '#{task}' never computed"
+        assert false, "step '#{step_name}' never computed"
     end
   end
 end

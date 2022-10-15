@@ -60,12 +60,27 @@ defmodule Journey.Execution.Store do
     }
     |> Journey.Repo.insert()
 
-    load_preloaded_execution(execution.id)
+    load(execution.id)
   end
 
-  defp load_preloaded_execution(execution_id) do
+  def load(execution_id) when is_binary(execution_id) do
     Journey.Repo.get(Journey.Schema.Execution, execution_id)
     |> Journey.Repo.preload(:computations)
+    |> convert_computation_task_names_to_atoms()
+  end
+
+  def load(execution) when is_map(execution) do
+    load(execution.id)
+  end
+
+  defp convert_computation_task_names_to_atoms(execution) do
+    updated_computations =
+      execution.computations
+      |> Enum.map(fn c ->
+        %{c | name: String.to_atom(c.name)}
+      end)
+
+    %{execution | computations: updated_computations}
   end
 
   # @spec start_computation(String.t(), atom()) :: {atom(), map()}
