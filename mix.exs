@@ -17,6 +17,11 @@ defmodule Journey.MixProject do
       ],
       name: "Journey",
       source_url: "https://github.com/markmark206/journey2",
+      test_coverage: [
+        summary: [
+          threshold: 92
+        ]
+      ],
       docs: [
         main: "Journey",
         extras: ["README.md", "LICENSE"]

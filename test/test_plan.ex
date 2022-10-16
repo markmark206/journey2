@@ -32,57 +32,81 @@ defmodule Journey.Test.UserJourney do
     }
   end
 
-  # @five_minutes 60 * 5
-  # @three_minutes 60 * 3
-
-  def send_evening_check_in(values) do
-    function_name = "send_evening_check_in[#{values[:user_id].value}]"
+  def send_evening_check_in(execution) do
+    function_name = "send_evening_check_in[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
-    :timer.sleep(10000)
+    :timer.sleep(2000)
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "evening check in #{values[:user_id].value}#{current_time_seconds}"
+    run_result = "evening check in completed for user #{user_id(execution)}"
+    Logger.info("#{function_name}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{function_name}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{function_name}: done, let's do this again.")
       # Run again in five minutes.
+      # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
       # {:ok_run_again, %{next_run_in_seconds: five_minutes, result: run_result}}
       {:ok, run_result}
     end
   end
 
-  def send_morning_update(values) do
-    function_name = "send_morning_update[#{values[:user_id].value}]"
+  def send_morning_update(execution) do
+    function_name = "send_morning_update[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
-    :timer.sleep(15000)
+    :timer.sleep(3000)
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "evening check in #{values[:user_id].value}#{current_time_seconds}"
+    run_result = "morning update completed for user #{user_id(execution)}"
+
+    Logger.info("#{function_name}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{function_name}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{function_name}: done, let's do this again.")
       # Run again in five minutes.
+      # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
       # {:ok_run_again, %{next_run_in_seconds: three_minutes, result: run_result}}
       {:ok, run_result}
     end
   end
 
-  def user_lifetime_completed(values) do
-    function_name = "user_lifetime_completed[#{values[:user_id].value}]"
+  defp user_id(execution) do
+    Journey.Execution.get_computation_value(execution, :user_id)
+  end
+
+  def user_lifetime_completed(execution) do
+    function_name = "user_lifetime_completed[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
-    current_time_seconds = Journey.Utilities.curent_unix_time_sec()
+
+    :timer.sleep(2000)
+
+    enclose_in_quote = fn s -> "\"" <> s <> "\"" end
+
+    computations_so_far =
+      Enum.join(
+        [
+          enclose_in_quote.(Journey.Execution.get_computation_value(execution, :user_id)),
+          enclose_in_quote.(Journey.Execution.get_computation_value(execution, :evening_check_in)),
+          enclose_in_quote.(Journey.Execution.get_computation_value(execution, :morning_update))
+        ],
+        ", "
+      )
+
+    Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
+
+    Logger.info("#{function_name}: using ")
+    run_result = "user lifetime completed for user #{user_id(execution)}"
     Logger.info("#{function_name}: all done")
-    {:ok, current_time_seconds}
+    {:ok, run_result}
   end
 end

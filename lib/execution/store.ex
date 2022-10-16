@@ -30,17 +30,109 @@ defmodule Journey.Execution.Store do
   @doc """
   Stores an execution.
   """
-  def create_initial_record(process_id) do
-    Logger.debug("create_initial_record")
-
+  def create_new_execution_record(process_id) do
     {:ok, execution_db_record} =
       %Journey.Schema.Execution{
         process_id: process_id
       }
       |> Journey.Repo.insert()
 
+    Logger.debug("create_new_execution_record: created record '#{execution_db_record.id}' for process '#{process_id}'")
+
     execution_db_record
     |> Journey.Repo.preload([:computations])
+  end
+
+  # defp test_only_create_a_computation_record(execution, step_name) do
+  #   # If we ever need to create a rogue computation record, to help us test how we handle this, we can use this function.
+  #   # This function should not be called outside of tests.
+
+  #   :test = Mix.env()
+
+  #   %Journey.Schema.Computation{
+  #     id: Journey.Utilities.object_id("cmp", 10),
+  #     execution_id: execution.id,
+  #     name: Atom.to_string(step_name),
+  #     scheduled_time: 0,
+  #     start_time: Journey.Utilities.curent_unix_time_sec(),
+  #     result_code: :computing
+  #   }
+  #   |> Journey.Repo.insert()
+  # end
+
+  def create_new_computation_record_if_one_doesnt_exist(execution, step_name) when is_atom(step_name) do
+    # Create a new computation record. If one already exists, tell the caller.
+
+    func_name = "create_new_computation_record_if_one_doesnt_exist[#{execution.id}.#{step_name}]"
+    Logger.debug("#{func_name}: starting")
+
+    # If we want to test how the code handles computation records that already exist, uncomment this code, for test use only.
+    # test_only_create_a_computation_record(execution, step_name)
+
+    step_name_string = Atom.to_string(step_name)
+
+    from(
+      computation in Journey.Schema.Computation,
+      where: computation.execution_id == ^execution.id and computation.name == ^step_name_string
+    )
+    |> Journey.Repo.one()
+    |> case do
+      nil ->
+        # Record a ":computing" computation for this.
+        # When executing on multiple hosts or processes, there a chance of duplicate records.
+        Logger.debug("#{func_name}: creating a new computation object")
+
+        %Journey.Schema.Computation{
+          id: Journey.Utilities.object_id("cmp", 10),
+          execution_id: execution.id,
+          name: step_name_string,
+          scheduled_time: 0,
+          start_time: Journey.Utilities.curent_unix_time_sec(),
+          end_time: nil,
+          result_code: :computing
+        }
+        |> Journey.Repo.insert()
+
+      _existing_computation ->
+        # A computation for this step already exists. Do not proceed.
+        Logger.debug("#{func_name}: already computing or computed")
+
+        {:error, :computation_exists}
+    end
+  end
+
+  def complete_computation_and_record_result(execution, computation, step_name, value) do
+    func_name = "complete_computation_and_record_result[#{execution.id}][#{step_name}]"
+    Logger.debug("#{func_name}: start")
+
+    step_name_string = Atom.to_string(step_name)
+
+    from(
+      computation in Journey.Schema.Computation,
+      where:
+        computation.id == ^computation.id and computation.execution_id == ^execution.id and
+          computation.name == ^step_name_string and
+          computation.result_code == ^:computing
+    )
+    |> Journey.Repo.one()
+    |> case do
+      nil ->
+        # The computation does not exist for some reason. Log and proceed. The result will simply be discarded.
+        Logger.warn("#{func_name}: an incomlete computation does not seem to exist")
+
+      reloaded_computation ->
+        reloaded_computation
+        |> Ecto.Changeset.change(
+          result_code: :computed,
+          result_value: %{value: value},
+          end_time: Journey.Utilities.curent_unix_time_sec()
+        )
+        |> Journey.Repo.update()
+
+        Logger.debug("#{func_name}: computation updated, completed")
+    end
+
+    load(execution.id)
   end
 
   def set_value(execution, step_name, value) do
@@ -54,7 +146,6 @@ defmodule Journey.Execution.Store do
       scheduled_time: 0,
       start_time: Journey.Utilities.curent_unix_time_sec(),
       end_time: Journey.Utilities.curent_unix_time_sec(),
-      # revision: 0,
       result_code: :computed,
       result_value: %{value: value}
     }
@@ -66,18 +157,28 @@ defmodule Journey.Execution.Store do
   def load(execution_id) when is_binary(execution_id) do
     Journey.Repo.get(Journey.Schema.Execution, execution_id)
     |> Journey.Repo.preload(:computations)
-    |> convert_computation_task_names_to_atoms()
+    |> cleanup_computations()
   end
 
   def load(execution) when is_map(execution) do
     load(execution.id)
   end
 
-  defp convert_computation_task_names_to_atoms(execution) do
+  defp cleanup_computations(execution) do
     updated_computations =
       execution.computations
       |> Enum.map(fn c ->
+        # Replace computation name string with the corresponding atoms.
         %{c | name: String.to_atom(c.name)}
+      end)
+      |> Enum.map(fn c ->
+        if c.result_value == nil do
+          c
+        else
+          # Simplify result_value from %{"result": value} to just 'value'.
+          %{"value" => value} = c.result_value
+          %{c | result_value: value}
+        end
       end)
 
     %{execution | computations: updated_computations}
