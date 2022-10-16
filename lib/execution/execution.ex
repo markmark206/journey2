@@ -131,6 +131,7 @@ defmodule Journey.Execution do
       {:ok, computation_object} ->
         # Successfully created a computation object. Proceed with the computation.
         Logger.info("#{func_name}: created a new computation object, performing the computation")
+        # TODO: kick off an asynchronous execution.
         {:ok, result} = step.func.(execution)
         Journey.Execution.Store.complete_computation_and_record_result(execution, computation_object, step.name, result)
 
