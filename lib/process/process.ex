@@ -25,4 +25,9 @@ defmodule Journey.Process do
       |> Journey.Execution.new()
       |> Journey.Execution.set_value(:started_at, Journey.Utilities.curent_unix_time_sec())
   end
+
+  def start() do
+    # TODO: kick this off as a background, recurring task.
+    Journey.Execution.sweep_and_revisit_expired_computations()
+  end
 end

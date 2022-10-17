@@ -76,10 +76,18 @@ defmodule Journey.Test.Lifetime do
                Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
              ]
     end
+
+    Journey.Execution.sweep_and_revisit_expired_computations()
+  end
+
+  test "expired tasks" do
+    # TODO: implement
+    # excercise process.start() and have a plan that takes too long to process things.
+    # what to do with execution that now have multiple computations for the same task.
   end
 
   defp check_frequency() do
-    if Journey.Test.UserJourney.slow?(), do: 2_000, else: 200
+    if Journey.Test.UserJourney.slow?(), do: 2_000, else: 100
   end
 
   defp check_wait() do

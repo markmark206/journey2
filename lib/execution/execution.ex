@@ -116,7 +116,10 @@ defmodule Journey.Execution do
     # These steps that we attempted to compute, whether or not we succeeded, or completed the computation.
     all_computed_or_attempted_step_names =
       execution.computations
-      # |> Enum.filter(fn c -> c.result_code == :computed end)
+      |> Enum.filter(fn c ->
+        # Expired computations should be recomputed.
+        c.result_code != :expired
+      end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()
 
@@ -149,6 +152,23 @@ defmodule Journey.Execution do
     |> Journey.ProcessCatalog.get()
     |> Map.get(:steps)
     |> Enum.find(fn process_step -> process_step.name == step_name end)
+  end
+
+  def sweep_and_revisit_expired_computations() do
+    # Sweep expired computations, and kick off processing for corresponding executions.
+    Logger.info("sweep_and_revisit_expired_computations: enter")
+
+    Journey.Execution.Store.mark_abandoned_computations_as_expired()
+    |> Enum.map(fn expired_computation ->
+      Logger.info("processing expired computation, #{inspect(expired_computation, pretty: true)}")
+      expired_computation
+    end)
+    |> Enum.map(fn expired_computation -> expired_computation.execution_id end)
+    |> Enum.uniq()
+    # Revisit the execution, those abandoned / expired computations might still need to be computed.
+    |> Enum.each(&kick_off_unblocked_steps_if_any/1)
+
+    Logger.info("sweep_and_revisit_expired_computations: exit")
   end
 
   defp start_computing_if_not_already_being_computed(step, execution) do
@@ -205,6 +225,12 @@ defmodule Journey.Execution do
       end)
 
     execution |> reload()
+  end
+
+  defp kick_off_unblocked_steps_if_any(execution_id) when is_binary(execution_id) do
+    execution_id
+    |> Journey.Execution.Store.load(false)
+    |> kick_off_unblocked_steps_if_any()
   end
 
   defp kick_off_unblocked_steps_if_any(execution) do
