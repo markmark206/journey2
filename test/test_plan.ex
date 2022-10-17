@@ -1,7 +1,11 @@
 defmodule Journey.Test.UserJourney do
   require Logger
 
-  @slow true
+  def slow?(), do: false
+  # def slow?(), do: false
+
+  def fail?(), do: true
+  # def fail?(), do: false
 
   def itinerary() do
     %Journey.Process{
@@ -38,7 +42,7 @@ defmodule Journey.Test.UserJourney do
     function_name = "send_evening_check_in[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
-    if @slow do
+    if slow?() do
       :timer.sleep(2000)
     end
 
@@ -64,7 +68,7 @@ defmodule Journey.Test.UserJourney do
     function_name = "send_morning_update[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
-    if @slow do
+    if slow?() do
       :timer.sleep(3000)
     end
 
@@ -95,11 +99,9 @@ defmodule Journey.Test.UserJourney do
     function_name = "user_lifetime_completed[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
 
-    if @slow do
+    if slow?() do
       :timer.sleep(2000)
     end
-
-    enclose_in_quote = fn s -> "\"" <> s <> "\"" end
 
     # All of the upstream tasks must have been computed before this task starts computing.
     :computed = Journey.Execution.get_computation_status(execution, :user_id)
@@ -119,6 +121,10 @@ defmodule Journey.Test.UserJourney do
     Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
 
     Logger.info("#{function_name}: using ")
+
+    if fail?() do
+      {_a, _b} = 3
+    end
 
     run_result = [
       "user lifetime completed for user #{user_id(execution)}",

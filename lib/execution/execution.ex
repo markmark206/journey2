@@ -1,10 +1,5 @@
 defmodule Journey.Execution do
   require Logger
-  # defstruct [
-  #  :id,
-  #  :process_id,
-  #  :computations
-  # ]
 
   def new(process_id) do
     Journey.Execution.Store.create_new_execution_record(process_id)
@@ -13,6 +8,7 @@ defmodule Journey.Execution do
   def get_computation(execution, computation_name) do
     # TODO: replace this biz with a dictionary lookup.
     # TODO: detect and handle multiple computations of the same name.
+    # TODO: raise if the name is not valid.
     execution.computations
     |> Enum.find(fn c -> c.name == computation_name end)
   end
@@ -36,10 +32,9 @@ defmodule Journey.Execution do
   end
 
   def set_value(execution, step, value) do
-    execution = Journey.Execution.Store.set_value(execution, step, value)
-    kick_off_unblocked_steps_if_any(execution)
-    # TODO: have kick_off_unblocked_steps_if_any return an updated execution, and return that execution instead.
     execution
+    |> Journey.Execution.Store.set_value(step, value)
+    |> kick_off_unblocked_steps_if_any()
   end
 
   def reload(execution) do
@@ -59,13 +54,10 @@ defmodule Journey.Execution do
     computed_step_names =
       execution.computations
       |> Enum.filter(fn c ->
-        # Logger.info("#{log_prefix}: looking at upstream step #{inspect(c, pretty: true)}")
         c.result_code == :computed
       end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()
-
-    # |> IO.inspect(label: "#{log_prefix}: computed steps")
 
     all_upstream_steps_names =
       step.blocked_by |> Enum.map(fn upstream_step -> upstream_step.step_name end) |> MapSet.new()
@@ -83,21 +75,19 @@ defmodule Journey.Execution do
           "#{log_prefix}: blocked by upstream steps: (#{Enum.count(remaining_upstream_steps)}) (#{Enum.join(remaining_upstream_steps, ", ")})"
         )
 
-        process = Journey.ProcessCatalog.get(execution.process_id)
+        # process = Journey.ProcessCatalog.get(execution.process_id)
 
-        remaining_upstream_steps
-        |> Enum.map(fn step_name ->
-          Enum.find(process.steps, fn process_step -> process_step.name == step_name end)
-        end)
+        # remaining_upstream_steps
+        # |> Enum.map(fn step_name ->
+        #   process.steps
+        #   |> Enum.find(fn process_step -> process_step.name == step_name end)
+        # end)
 
-        # |> IO.inspect(label: "#{log_prefix}: blocked by upstream steps, with details")
-
-        remaining_upstream_steps
-        |> Enum.map(fn step_name ->
-          Enum.find(execution.computations, fn computation -> computation.name == step_name end)
-        end)
-
-        # |> IO.inspect(label: "#{log_prefix}: blocked by upstream computations, with details")
+        # remaining_upstream_steps
+        # |> Enum.map(fn step_name ->
+        #   execution.computations
+        #   |> Enum.find(fn computation -> computation.name == step_name end)
+        # end)
 
         true
     end
@@ -110,7 +100,7 @@ defmodule Journey.Execution do
 
     all_fully_computed_step_names =
       execution.computations
-      |> Enum.filter(fn c -> c.result_code == :computed end)
+      |> Enum.filter(fn c -> c.result_code in [:computed, :failed] end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()
 
@@ -170,22 +160,26 @@ defmodule Journey.Execution do
               # TODO: kick off an asynchronous execution.
               {:ok, result} = step.func.(execution)
 
-              updated_execution =
-                Journey.Execution.Store.complete_computation_and_record_result(
-                  execution,
-                  computation_object,
-                  step.name,
-                  result
-                )
+              Journey.Execution.Store.complete_computation_and_record_result(
+                execution,
+                computation_object,
+                step.name,
+                result
+              )
             rescue
               exception ->
-                Logger.error(Exception.format(:error, exception, __STACKTRACE__))
+                # Processing failed.
+                error_string = Exception.format(:error, exception, __STACKTRACE__)
+
+                Logger.error(
+                  "#{func_name}: failed to execute this step's function. computation id: #{computation_object.id}, error: #{error_string}"
+                )
 
                 Journey.Execution.Store.mark_computation_as_failed(
                   execution,
                   computation_object,
                   step.name,
-                  "#{inspect(exception, pretty: true)}: #{inspect(__STACKTRACE__, pretty: true)}"
+                  error_string
                 )
             end
 
@@ -210,11 +204,10 @@ defmodule Journey.Execution do
 
     execution
     |> find_steps_ready_to_be_computed(process)
-    |> IO.inspect(label: "#{log_prefix}: these are steps that are ready to be computed")
     |> case do
       [] ->
         Logger.info("#{log_prefix}: no steps available to be computed")
-        {:ok, execution}
+        execution
 
       [step | _] ->
         Logger.info("#{log_prefix}: step '#{step.name}' is ready to compute")
