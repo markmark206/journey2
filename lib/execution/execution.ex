@@ -144,14 +144,27 @@ defmodule Journey.Execution do
     end)
   end
 
+  defp get_step_definition(execution, step_name) when is_atom(step_name) do
+    execution.process_id
+    |> Journey.ProcessCatalog.get()
+    |> Map.get(:steps)
+    |> Enum.find(fn process_step -> process_step.name == step_name end)
+  end
+
   defp start_computing_if_not_already_being_computed(step, execution) do
     # If this step is not already being computed, start the computation.
     func_name = "start_computing[#{execution.id}.#{step.name}]"
     Logger.debug("#{func_name}: starting")
 
+    step_definition = get_step_definition(execution, step.name)
+
     {:ok, _pid} =
       Task.start(fn ->
-        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(execution, step.name)
+        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(
+          execution,
+          step.name,
+          step_definition.expires_after_seconds
+        )
         |> case do
           {:ok, computation_object} ->
             # Successfully created a computation object. Proceed with the computation.

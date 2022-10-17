@@ -20,7 +20,8 @@ defmodule Journey.Execution.Store do
     |> Journey.Repo.preload([:computations])
   end
 
-  def create_new_computation_record_if_one_doesnt_exist_lock(execution, step_name) when is_atom(step_name) do
+  def create_new_computation_record_if_one_doesnt_exist_lock(execution, step_name, expires_after_seconds)
+      when is_atom(step_name) do
     # Create a new computation record. If one already exists, tell the caller.
 
     func_name = "create_new_computation_record_if_one_doesnt_exist_lock[#{execution.id}.#{step_name}]"
@@ -52,13 +53,16 @@ defmodule Journey.Execution.Store do
             |> Ecto.Changeset.change(revision: execution_db_record.revision + 1)
             |> Journey.Repo.update!()
 
+          now = Journey.Utilities.curent_unix_time_sec()
+
           %Journey.Schema.Computation{
             id: Journey.Utilities.object_id("cmp", 10),
             execution_id: execution.id,
             name: step_name_string,
             scheduled_time: 0,
-            start_time: Journey.Utilities.curent_unix_time_sec(),
+            start_time: now,
             end_time: nil,
+            deadline: now + expires_after_seconds,
             result_code: :computing,
             ex_revision: updated_execution_record.revision
           }
@@ -202,6 +206,12 @@ defmodule Journey.Execution.Store do
 
   def load(execution) when is_map(execution) do
     load(execution.id)
+  end
+
+  def get_executions_to_kick_off() do
+    # computations that are
+    # - scheduled, but whose status is nil (do this later, for timed tasks)
+    # - computing, but haven't completed within their limit
   end
 
   defp cleanup_computations(execution) do
