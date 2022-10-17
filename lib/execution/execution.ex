@@ -5,32 +5,6 @@ defmodule Journey.Execution do
     Journey.Execution.Store.create_new_execution_record(process_id)
   end
 
-  def get_computation(execution, computation_name) do
-    # TODO: replace this biz with a dictionary lookup.
-    # TODO: detect and handle multiple computations of the same name.
-    # TODO: raise if the name is not valid.
-    execution.computations
-    |> Enum.find(fn c -> c.name == computation_name end)
-  end
-
-  def get_computation_status(execution, computation_name) do
-    execution
-    |> get_computation(computation_name)
-    |> case do
-      nil -> nil
-      computation -> computation.result_code
-    end
-  end
-
-  def get_computation_value(execution, computation_name) do
-    execution
-    |> get_computation(computation_name)
-    |> case do
-      nil -> nil
-      computation -> computation.result_value
-    end
-  end
-
   def set_value(execution, step, value) do
     execution
     |> Journey.Execution.Store.set_value(step, value)
