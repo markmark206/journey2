@@ -1,10 +1,5 @@
 defmodule Journey.Execution do
   require Logger
-  # defstruct [
-  #  :id,
-  #  :process_id,
-  #  :computations
-  # ]
 
   def new(process_id) do
     Journey.Execution.Store.create_new_execution_record(process_id)
@@ -13,6 +8,7 @@ defmodule Journey.Execution do
   def get_computation(execution, computation_name) do
     # TODO: replace this biz with a dictionary lookup.
     # TODO: detect and handle multiple computations of the same name.
+    # TODO: raise if the name is not valid.
     execution.computations
     |> Enum.find(fn c -> c.name == computation_name end)
   end
@@ -36,10 +32,9 @@ defmodule Journey.Execution do
   end
 
   def set_value(execution, step, value) do
-    execution = Journey.Execution.Store.set_value(execution, step, value)
-    kick_off_unblocked_steps(execution)
-    # TODO: have kick_off_unblocked_steps return an updated execution, and return that execution instead.
     execution
+    |> Journey.Execution.Store.set_value(step, value)
+    |> kick_off_unblocked_steps_if_any()
   end
 
   def reload(execution) do
@@ -51,10 +46,18 @@ defmodule Journey.Execution do
     "execution summary. TODO: implement '#{execution.id}'"
   end
 
-  defp has_outstanding_dependencies?(step, execution, computed_step_names) do
+  defp has_outstanding_dependencies?(step, execution) do
     log_prefix = "has_outstanding_dependencies?[#{execution.id}.#{step.name}]"
 
     Logger.debug("#{log_prefix}: step in question: #{inspect(step, pretty: true)}")
+
+    computed_step_names =
+      execution.computations
+      |> Enum.filter(fn c ->
+        c.result_code == :computed
+      end)
+      |> Enum.map(fn c -> c.name end)
+      |> MapSet.new()
 
     all_upstream_steps_names =
       step.blocked_by |> Enum.map(fn upstream_step -> upstream_step.step_name end) |> MapSet.new()
@@ -69,8 +72,22 @@ defmodule Journey.Execution do
 
       _ ->
         Logger.info(
-          "#{log_prefix}: blocked by #{Enum.count(remaining_upstream_steps)} upstream steps: (#{Enum.join(remaining_upstream_steps, ", ")})"
+          "#{log_prefix}: blocked by upstream steps: (#{Enum.count(remaining_upstream_steps)}) (#{Enum.join(remaining_upstream_steps, ", ")})"
         )
+
+        # process = Journey.ProcessCatalog.get(execution.process_id)
+
+        # remaining_upstream_steps
+        # |> Enum.map(fn step_name ->
+        #   process.steps
+        #   |> Enum.find(fn process_step -> process_step.name == step_name end)
+        # end)
+
+        # remaining_upstream_steps
+        # |> Enum.map(fn step_name ->
+        #   execution.computations
+        #   |> Enum.find(fn computation -> computation.name == step_name end)
+        # end)
 
         true
     end
@@ -83,7 +100,7 @@ defmodule Journey.Execution do
 
     all_fully_computed_step_names =
       execution.computations
-      |> Enum.filter(fn c -> c.result_code == :computed end)
+      |> Enum.filter(fn c -> c.result_code in [:computed, :failed] end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()
 
@@ -93,14 +110,20 @@ defmodule Journey.Execution do
     )
   end
 
-  defp find_steps_not_yet_computed_or_computing(execution, process) do
+  defp find_steps_ready_to_be_computed(execution, process) do
     all_step_names = process.steps |> Enum.map(fn p -> p.name end) |> MapSet.new()
-    all_computed_step_names = execution.computations |> Enum.map(fn c -> c.name end) |> MapSet.new()
+
+    # These steps that we attempted to compute, whether or not we succeeded, or completed the computation.
+    all_computed_or_attempted_step_names =
+      execution.computations
+      # |> Enum.filter(fn c -> c.result_code == :computed end)
+      |> Enum.map(fn c -> c.name end)
+      |> MapSet.new()
 
     steps_not_yet_computed_names =
       MapSet.difference(
         all_step_names,
-        all_computed_step_names
+        all_computed_or_attempted_step_names
       )
 
     process_steps_not_yet_computed =
@@ -110,14 +133,14 @@ defmodule Journey.Execution do
       end)
 
     Logger.info(
-      "kick_off_unblocked_steps[#{execution.id}]: #{Enum.count(steps_not_yet_computed_names)} steps available for execution: #{Enum.join(steps_not_yet_computed_names, ", ")}"
+      "kick_off_unblocked_steps_if_any[#{execution.id}]: #{Enum.count(steps_not_yet_computed_names)} steps available for execution: #{Enum.join(steps_not_yet_computed_names, ", ")}"
     )
 
     process_steps_not_yet_computed
     |> Enum.filter(fn step -> step.func != nil end)
     # credo:disable-for-next-line Credo.Check.Refactor.FilterFilter
     |> Enum.filter(fn step ->
-      !has_outstanding_dependencies?(step, execution, all_computed_step_names)
+      !has_outstanding_dependencies?(step, execution)
     end)
   end
 
@@ -126,36 +149,70 @@ defmodule Journey.Execution do
     func_name = "start_computing[#{execution.id}.#{step.name}]"
     Logger.debug("#{func_name}: starting")
 
-    Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist(execution, step.name)
-    |> case do
-      {:ok, computation_object} ->
-        # Successfully created a computation object. Proceed with the computation.
-        Logger.info("#{func_name}: created a new computation object, performing the computation")
-        {:ok, result} = step.func.(execution)
-        Journey.Execution.Store.complete_computation_and_record_result(execution, computation_object, step.name, result)
+    {:ok, _pid} =
+      Task.start(fn ->
+        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(execution, step.name)
+        |> case do
+          {:ok, computation_object} ->
+            # Successfully created a computation object. Proceed with the computation.
+            try do
+              Logger.info("#{func_name}: created a new computation object, performing the computation")
+              # TODO: kick off an asynchronous execution.
+              {:ok, result} = step.func.(execution)
 
-      {:error, :computation_exists} ->
-        # The computation object for this step already exists. No need to perform the computation.
-        Logger.warn("#{func_name}: computation already exists, not starting")
-    end
+              Journey.Execution.Store.complete_computation_and_record_result(
+                execution,
+                computation_object,
+                step.name,
+                result
+              )
+            rescue
+              exception ->
+                # Processing failed.
+                error_string = Exception.format(:error, exception, __STACKTRACE__)
+
+                Logger.error(
+                  "#{func_name}: failed to execute this step's function. computation id: #{computation_object.id}, error: #{error_string}"
+                )
+
+                Journey.Execution.Store.mark_computation_as_failed(
+                  execution,
+                  computation_object,
+                  step.name,
+                  error_string
+                )
+            end
+
+            kick_off_unblocked_steps_if_any(execution)
+
+          {:error, :computation_exists} ->
+            # The computation object for this step already exists. No need to perform the computation.
+            Logger.warn("#{func_name}: computation already exists, not starting")
+        end
+      end)
 
     execution |> reload()
   end
 
-  defp kick_off_unblocked_steps(execution) do
+  defp kick_off_unblocked_steps_if_any(execution) do
+    log_prefix = "kick_off_unblocked_steps_if_any[#{execution.id}]"
     process = Journey.ProcessCatalog.get(execution.process_id)
 
+    execution =
+      execution
+      |> reload()
+
     execution
-    |> find_steps_not_yet_computed_or_computing(process)
+    |> find_steps_ready_to_be_computed(process)
     |> case do
       [] ->
-        Logger.info("kick_off_unblocked_steps[#{execution.id}]: no steps available to be computed")
-        {:ok, execution}
+        Logger.info("#{log_prefix}: no steps available to be computed")
+        execution
 
       [step | _] ->
-        Logger.info("kick_off_unblocked_steps[#{execution.id}]: step '#{step.name}' is ready to compute")
+        Logger.info("#{log_prefix}: step '#{step.name}' is ready to compute")
         execution = start_computing_if_not_already_being_computed(step, execution)
-        kick_off_unblocked_steps(execution)
+        kick_off_unblocked_steps_if_any(execution)
     end
   end
 end

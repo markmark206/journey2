@@ -12,6 +12,8 @@ defmodule Journey.Schema.Computation do
     field(:end_time, :integer)
     field(:result_code, Ecto.Enum, values: [nil, :computing, :computed, :failed], default: nil)
     field(:result_value, :map)
+    field(:error_details, :string)
+    field(:ex_revision, :integer, default: 0)
     timestamps()
   end
 end

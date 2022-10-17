@@ -6,6 +6,7 @@ defmodule Journey.Schema.Execution do
   schema "executions" do
     field(:process_id, :string)
     has_many(:computations, Journey.Schema.Computation)
+    field(:revision, :integer, default: 0)
     timestamps()
   end
 end

@@ -1,6 +1,12 @@
 defmodule Journey.Test.UserJourney do
   require Logger
 
+  def slow?(), do: false
+  # def slow?(), do: false
+
+  def fail?(), do: true
+  # def fail?(), do: false
+
   def itinerary() do
     %Journey.Process{
       process_id: "user journey",
@@ -35,7 +41,10 @@ defmodule Journey.Test.UserJourney do
   def send_evening_check_in(execution) do
     function_name = "send_evening_check_in[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
-    :timer.sleep(2000)
+
+    if slow?() do
+      :timer.sleep(2000)
+    end
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "evening check in completed for user #{user_id(execution)}"
@@ -59,7 +68,9 @@ defmodule Journey.Test.UserJourney do
     function_name = "send_morning_update[#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
-    :timer.sleep(3000)
+    if slow?() do
+      :timer.sleep(3000)
+    end
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "morning update completed for user #{user_id(execution)}"
@@ -86,18 +97,23 @@ defmodule Journey.Test.UserJourney do
 
   def user_lifetime_completed(execution) do
     function_name = "user_lifetime_completed[#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+    Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
 
-    :timer.sleep(2000)
+    if slow?() do
+      :timer.sleep(2000)
+    end
 
-    enclose_in_quote = fn s -> "\"" <> s <> "\"" end
+    # All of the upstream tasks must have been computed before this task starts computing.
+    :computed = Journey.Execution.get_computation_status(execution, :user_id)
+    :computed = Journey.Execution.get_computation_status(execution, :evening_check_in)
+    :computed = Journey.Execution.get_computation_status(execution, :morning_update)
 
     computations_so_far =
       Enum.join(
         [
-          enclose_in_quote.(Journey.Execution.get_computation_value(execution, :user_id)),
-          enclose_in_quote.(Journey.Execution.get_computation_value(execution, :evening_check_in)),
-          enclose_in_quote.(Journey.Execution.get_computation_value(execution, :morning_update))
+          Journey.Execution.get_computation_value(execution, :user_id),
+          Journey.Execution.get_computation_value(execution, :morning_update),
+          Journey.Execution.get_computation_value(execution, :evening_check_in)
         ],
         ", "
       )
@@ -105,7 +121,16 @@ defmodule Journey.Test.UserJourney do
     Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
 
     Logger.info("#{function_name}: using ")
-    run_result = "user lifetime completed for user #{user_id(execution)}"
+
+    if fail?() do
+      {_a, _b} = 3
+    end
+
+    run_result = [
+      "user lifetime completed for user #{user_id(execution)}",
+      computations_so_far
+    ]
+
     Logger.info("#{function_name}: all done")
     {:ok, run_result}
   end
