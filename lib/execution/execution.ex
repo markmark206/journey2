@@ -59,12 +59,13 @@ defmodule Journey.Execution do
     computed_step_names =
       execution.computations
       |> Enum.filter(fn c ->
-        Logger.info("#{log_prefix}: looking at upstream step #{inspect(c, pretty: true)}")
+        # Logger.info("#{log_prefix}: looking at upstream step #{inspect(c, pretty: true)}")
         c.result_code == :computed
       end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()
-      |> IO.inspect(label: "#{log_prefix}: computed steps")
+
+    # |> IO.inspect(label: "#{log_prefix}: computed steps")
 
     all_upstream_steps_names =
       step.blocked_by |> Enum.map(fn upstream_step -> upstream_step.step_name end) |> MapSet.new()
@@ -88,13 +89,15 @@ defmodule Journey.Execution do
         |> Enum.map(fn step_name ->
           Enum.find(process.steps, fn process_step -> process_step.name == step_name end)
         end)
-        |> IO.inspect(label: "#{log_prefix}: blocked by upstream steps, with details")
+
+        # |> IO.inspect(label: "#{log_prefix}: blocked by upstream steps, with details")
 
         remaining_upstream_steps
         |> Enum.map(fn step_name ->
           Enum.find(execution.computations, fn computation -> computation.name == step_name end)
         end)
-        |> IO.inspect(label: "#{log_prefix}: blocked by upstream computations, with details")
+
+        # |> IO.inspect(label: "#{log_prefix}: blocked by upstream computations, with details")
 
         true
     end
@@ -158,7 +161,7 @@ defmodule Journey.Execution do
 
     {:ok, _pid} =
       Task.start(fn ->
-        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist(execution, step.name)
+        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(execution, step.name)
         |> case do
           {:ok, computation_object} ->
             # Successfully created a computation object. Proceed with the computation.

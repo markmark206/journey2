@@ -60,6 +60,74 @@ defmodule Journey.Execution.Store do
   #   |> Journey.Repo.insert()
   # end
 
+  def create_new_computation_record_if_one_doesnt_exist_lock(execution, step_name) when is_atom(step_name) do
+    # Create a new computation record. If one already exists, tell the caller.
+
+    func_name = "create_new_computation_record_if_one_doesnt_exist_lock[#{execution.id}.#{step_name}]"
+    Logger.debug("#{func_name}: starting")
+
+    # If we want to test how the code handles computation records that already exist, uncomment this code, for test use only.
+    # test_only_create_a_computation_record(execution, step_name)
+
+    step_name_string = Atom.to_string(step_name)
+
+    Journey.Repo.transaction(fn repo ->
+      execution_db_record =
+        from(ex in Journey.Schema.Execution,
+          where: ex.id == ^execution.id,
+          lock: "FOR UPDATE"
+        )
+        |> repo.one!()
+        |> IO.inspect(label: "chicken existing execution record for update")
+
+      from(
+        computation in Journey.Schema.Computation,
+        where: computation.execution_id == ^execution.id and computation.name == ^step_name_string
+      )
+      |> Journey.Repo.one()
+      |> case do
+        nil ->
+          # Record a ":computing" computation for this.
+          # When executing on multiple hosts or processes, there a chance of duplicate records.
+          Logger.debug("#{func_name}: creating a new computation object")
+
+          updated_execution_record =
+            execution_db_record
+            |> Ecto.Changeset.change(revision: execution_db_record.revision + 1)
+            |> Journey.Repo.update!()
+            |> IO.inspect(label: "updated execution record with new revision")
+
+          %Journey.Schema.Computation{
+            id: Journey.Utilities.object_id("cmp", 10),
+            execution_id: execution.id,
+            name: step_name_string,
+            scheduled_time: 0,
+            start_time: Journey.Utilities.curent_unix_time_sec(),
+            end_time: nil,
+            result_code: :computing,
+            ex_revision: updated_execution_record.revision
+          }
+          |> Journey.Repo.insert!()
+
+        _existing_computation ->
+          # A computation for this step already exists. Do not proceed.
+          Logger.debug("#{func_name}: already computing or computed")
+
+          {:error, :computation_exists}
+      end
+    end)
+    |> case do
+      {:ok, {:error, :computation_exists}} ->
+        {:error, :computation_exists}
+
+      {:ok, result} ->
+        {:ok, result}
+
+        # {:error, :computation_exists} ->
+        #  {:error, :computation_exists}
+    end
+  end
+
   def create_new_computation_record_if_one_doesnt_exist(execution, step_name) when is_atom(step_name) do
     # Create a new computation record. If one already exists, tell the caller.
 
