@@ -5,32 +5,6 @@ defmodule Journey.Execution do
     Journey.Execution.Store.create_new_execution_record(process_id)
   end
 
-  def get_computation(execution, computation_name) do
-    # TODO: replace this biz with a dictionary lookup.
-    # TODO: detect and handle multiple computations of the same name.
-    # TODO: raise if the name is not valid.
-    execution.computations
-    |> Enum.find(fn c -> c.name == computation_name end)
-  end
-
-  def get_computation_status(execution, computation_name) do
-    execution
-    |> get_computation(computation_name)
-    |> case do
-      nil -> nil
-      computation -> computation.result_code
-    end
-  end
-
-  def get_computation_value(execution, computation_name) do
-    execution
-    |> get_computation(computation_name)
-    |> case do
-      nil -> nil
-      computation -> computation.result_value
-    end
-  end
-
   def set_value(execution, step, value) do
     execution
     |> Journey.Execution.Store.set_value(step, value)
@@ -116,7 +90,10 @@ defmodule Journey.Execution do
     # These steps that we attempted to compute, whether or not we succeeded, or completed the computation.
     all_computed_or_attempted_step_names =
       execution.computations
-      # |> Enum.filter(fn c -> c.result_code == :computed end)
+      |> Enum.filter(fn c ->
+        # Expired computations should be recomputed.
+        c.result_code != :expired
+      end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()
 
@@ -144,14 +121,44 @@ defmodule Journey.Execution do
     end)
   end
 
+  defp get_step_definition(execution, step_name) when is_atom(step_name) do
+    execution.process_id
+    |> Journey.ProcessCatalog.get()
+    |> Map.get(:steps)
+    |> Enum.find(fn process_step -> process_step.name == step_name end)
+  end
+
+  def sweep_and_revisit_expired_computations() do
+    # Sweep expired computations, and kick off processing for corresponding executions.
+    Logger.info("sweep_and_revisit_expired_computations: enter")
+
+    Journey.Execution.Store.mark_abandoned_computations_as_expired()
+    |> Enum.map(fn expired_computation ->
+      Logger.info("processing expired computation, #{inspect(expired_computation, pretty: true)}")
+      expired_computation
+    end)
+    |> Enum.map(fn expired_computation -> expired_computation.execution_id end)
+    |> Enum.uniq()
+    # Revisit the execution, those abandoned / expired computations might still need to be computed.
+    |> Enum.each(&kick_off_unblocked_steps_if_any/1)
+
+    Logger.info("sweep_and_revisit_expired_computations: exit")
+  end
+
   defp start_computing_if_not_already_being_computed(step, execution) do
     # If this step is not already being computed, start the computation.
     func_name = "start_computing[#{execution.id}.#{step.name}]"
     Logger.debug("#{func_name}: starting")
 
+    step_definition = get_step_definition(execution, step.name)
+
     {:ok, _pid} =
       Task.start(fn ->
-        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(execution, step.name)
+        Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(
+          execution,
+          step.name,
+          step_definition.expires_after_seconds
+        )
         |> case do
           {:ok, computation_object} ->
             # Successfully created a computation object. Proceed with the computation.
@@ -192,6 +199,12 @@ defmodule Journey.Execution do
       end)
 
     execution |> reload()
+  end
+
+  defp kick_off_unblocked_steps_if_any(execution_id) when is_binary(execution_id) do
+    execution_id
+    |> Journey.Execution.Store.load(false)
+    |> kick_off_unblocked_steps_if_any()
   end
 
   defp kick_off_unblocked_steps_if_any(execution) do
