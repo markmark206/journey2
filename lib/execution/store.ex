@@ -78,7 +78,8 @@ defmodule Journey.Execution.Store do
           lock: "FOR UPDATE"
         )
         |> repo.one!()
-        |> IO.inspect(label: "chicken existing execution record for update")
+
+      # |> IO.inspect(label: "chicken existing execution record for update")
 
       from(
         computation in Journey.Schema.Computation,
@@ -95,7 +96,8 @@ defmodule Journey.Execution.Store do
             execution_db_record
             |> Ecto.Changeset.change(revision: execution_db_record.revision + 1)
             |> Journey.Repo.update!()
-            |> IO.inspect(label: "updated execution record with new revision")
+
+          # |> IO.inspect(label: "updated execution record with new revision")
 
           %Journey.Schema.Computation{
             id: Journey.Utilities.object_id("cmp", 10),
@@ -262,17 +264,40 @@ defmodule Journey.Execution.Store do
     Logger.debug("set_value [#{execution.id}][#{step_name}]")
     # inside a transaction, create a computation, and spin up any unblocked computations.
 
-    %Journey.Schema.Computation{
-      id: Journey.Utilities.object_id("cmp", 10),
-      execution_id: execution.id,
-      name: Atom.to_string(step_name),
-      scheduled_time: 0,
-      start_time: Journey.Utilities.curent_unix_time_sec(),
-      end_time: Journey.Utilities.curent_unix_time_sec(),
-      result_code: :computed,
-      result_value: %{value: value}
-    }
-    |> Journey.Repo.insert()
+    # step_name_string = Atom.to_string(step_name)
+
+    {:ok, _result} =
+      Journey.Repo.transaction(fn repo ->
+        execution_db_record =
+          from(ex in Journey.Schema.Execution,
+            where: ex.id == ^execution.id,
+            lock: "FOR UPDATE"
+          )
+          |> repo.one!()
+
+        # Record a ":computing" computation for this.
+        # When executing on multiple hosts or processes, there a chance of duplicate records.
+
+        updated_execution_record =
+          execution_db_record
+          |> Ecto.Changeset.change(revision: execution_db_record.revision + 1)
+          |> Journey.Repo.update!()
+
+        # |> IO.inspect(label: "updated execution record with new revision")
+
+        %Journey.Schema.Computation{
+          id: Journey.Utilities.object_id("cmp", 10),
+          execution_id: execution.id,
+          name: Atom.to_string(step_name),
+          scheduled_time: 0,
+          start_time: Journey.Utilities.curent_unix_time_sec(),
+          end_time: Journey.Utilities.curent_unix_time_sec(),
+          result_code: :computed,
+          result_value: %{value: value},
+          ex_revision: updated_execution_record.revision
+        }
+        |> Journey.Repo.insert!()
+      end)
 
     load(execution.id)
   end
