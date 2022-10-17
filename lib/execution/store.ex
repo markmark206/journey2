@@ -71,11 +71,26 @@ defmodule Journey.Execution.Store do
 
     step_name_string = Atom.to_string(step_name)
 
-    from(
-      computation in Journey.Schema.Computation,
-      where: computation.execution_id == ^execution.id and computation.name == ^step_name_string
-    )
+    query =
+      from(
+        computation in Journey.Schema.Computation,
+        where: computation.execution_id == ^execution.id and computation.name == ^step_name_string
+      )
+
+    query
     |> Journey.Repo.one()
+    |> case do
+      nil ->
+        # To *reduce* (not eliminate) the likelihood of duplicate computations, check again after a [random] bit.
+        # TODO: replace this with a more robust mechanism of SELECT FOR UPDATE on the execution record.
+        :timer.sleep(round(500.0 * :rand.uniform()))
+
+        query
+        |> Journey.Repo.one()
+
+      existing_computation ->
+        existing_computation
+    end
     |> case do
       nil ->
         # Record a ":computing" computation for this.
@@ -135,6 +150,46 @@ defmodule Journey.Execution.Store do
     load(execution.id)
   end
 
+  def mark_computation_as_failed(execution, computation, step_name, error_details) do
+    error_details_printable =
+      error_details
+      |> inspect(pretty: true)
+      |> String.slice(0, 200)
+
+    func_name = "mark_computation_as_failed[#{execution.id}][#{step_name}]"
+
+    Logger.debug("#{func_name}: start. error details: #{error_details_printable}")
+
+    step_name_string = Atom.to_string(step_name)
+
+    from(
+      computation in Journey.Schema.Computation,
+      where:
+        computation.id == ^computation.id and computation.execution_id == ^execution.id and
+          computation.name == ^step_name_string and
+          computation.result_code == ^:computing
+    )
+    |> Journey.Repo.one()
+    |> case do
+      nil ->
+        # The computation does not exist for some reason. Log and proceed. The result will simply be discarded.
+        Logger.warn("#{func_name}: an incomlete computation does not seem to exist")
+
+      reloaded_computation ->
+        reloaded_computation
+        |> Ecto.Changeset.change(
+          result_code: :failed,
+          error_details: error_details_printable,
+          end_time: Journey.Utilities.curent_unix_time_sec()
+        )
+        |> Journey.Repo.update()
+
+        Logger.debug("#{func_name}: computation marked as failed, completed")
+    end
+
+    load(execution.id)
+  end
+
   def set_value(execution, step_name, value) do
     Logger.debug("set_value [#{execution.id}][#{step_name}]")
     # inside a transaction, create a computation, and spin up any unblocked computations.
@@ -155,9 +210,13 @@ defmodule Journey.Execution.Store do
   end
 
   def load(execution_id) when is_binary(execution_id) do
+    Logger.info("load[#{execution_id}]: reloading")
+
     Journey.Repo.get(Journey.Schema.Execution, execution_id)
     |> Journey.Repo.preload(:computations)
     |> cleanup_computations()
+
+    # |> IO.inspect(label: "reloaded execution")
   end
 
   def load(execution) when is_map(execution) do

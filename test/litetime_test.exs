@@ -15,6 +15,8 @@ defmodule Journey.Test.Lifetime do
 
     assert execution
 
+    :timer.sleep(1000)
+
     # Set the value for the 1st step.
     execution =
       execution
@@ -33,18 +35,27 @@ defmodule Journey.Test.Lifetime do
       execution
       |> Journey.Execution.reload()
 
+    assert Journey.Execution.get_computation_status(execution, :user_id) == :computed
+
     assert Journey.Execution.get_computation_status(execution, :morning_update) == :computed
     assert Journey.Execution.get_computation_status(execution, :evening_check_in) == :computed
     assert Journey.Execution.get_computation_status(execution, :user_lifetime_completed) == :computed
 
-    assert Journey.Execution.get_computation_value(execution, :morning_update) ==
-             "morning update completed for user #{user_id}"
+    expected_morning_update_result = "morning update completed for user #{user_id}"
+    assert Journey.Execution.get_computation_value(execution, :morning_update) == expected_morning_update_result
 
-    assert Journey.Execution.get_computation_value(execution, :evening_check_in) ==
-             "evening check in completed for user #{user_id}"
+    expected_evening_checkin_result = "evening check in completed for user #{user_id}"
+    assert Journey.Execution.get_computation_value(execution, :evening_check_in) == expected_evening_checkin_result
+
+    expected_user_lifetime_completed_result = [
+      "user lifetime completed for user #{user_id}",
+      Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
+    ]
 
     assert Journey.Execution.get_computation_value(execution, :user_lifetime_completed) ==
-             "user lifetime completed for user #{user_id}"
+             expected_user_lifetime_completed_result
+
+    # "useridM1YBifKGs17Z7wdwUP30D7, evening check in completed for user useridM1YBifKGs17Z7wdwUP30D7, morning update completed for user useridM1YBifKGs17Z7wdwUP30D7"]
   end
 
   def wait_for_all_steps_to_be_completed(execution) do
@@ -52,7 +63,7 @@ defmodule Journey.Test.Lifetime do
            Journey.Execution.reload(execution)
            |> Journey.Execution.names_of_steps_not_yet_fully_computed()
            |> Enum.count() == 0,
-           timeout: 5_000,
+           timeout: 10_000,
            frequency: 1000
          ) do
       {:ok, _} ->
@@ -70,7 +81,7 @@ defmodule Journey.Test.Lifetime do
            Journey.Execution.reload(execution)
            |> Journey.Execution.get_computation_status(step_name) ==
              :computed,
-           timeout: 5_000,
+           timeout: 10_000,
            frequency: 1000
          ) do
       {:ok, _} ->
