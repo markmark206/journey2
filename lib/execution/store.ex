@@ -22,6 +22,71 @@ defmodule Journey.Execution.Store do
     |> Journey.Repo.preload([:computations])
   end
 
+  def create_new_scheduled_computation_record_maybe(execution, step_name, schedule_for)
+      when is_atom(step_name) do
+    step_name_string = Atom.to_string(step_name)
+    func_name = "#{f_name()}[#{execution.id}.#{step_name}]"
+    Logger.debug("#{func_name}: starting")
+
+    Journey.Repo.transaction(fn repo ->
+      # "Lock" the execution record.
+      execution_db_record =
+        from(ex in Journey.Schema.Execution,
+          where: ex.id == ^execution.id,
+          lock: "FOR UPDATE"
+        )
+        |> repo.one!()
+
+      # If we already have a scheduled computation, no need to schedule again.
+      from(
+        computation in Journey.Schema.Computation,
+        where:
+          computation.execution_id == ^execution.id and computation.name == ^step_name_string and
+            computation.result_code == ^:scheduled
+      )
+      |> Journey.Repo.one()
+      |> case do
+        nil ->
+          # Create a :scheduled computation for this.
+          # We are doing this inside of "for update", which protects against multiple processes inserting this record.
+          Logger.debug("#{func_name}: creating a new :scheduled computation object")
+
+          updated_execution_record =
+            execution_db_record
+            |> Ecto.Changeset.change(revision: execution_db_record.revision + 1)
+            |> Journey.Repo.update!()
+
+          %Journey.Schema.Computation{
+            id: Journey.Utilities.object_id("cmp", 10),
+            execution_id: execution.id,
+            name: step_name_string,
+            scheduled_time: schedule_for,
+            start_time: nil,
+            end_time: nil,
+            deadline: nil,
+            result_code: :scheduled,
+            ex_revision: updated_execution_record.revision
+          }
+          |> Journey.Repo.insert!()
+
+        existing_computation ->
+          # A scheduled computation for this step already exists. There is nothing to do.
+          Logger.debug(
+            "#{func_name}: a scheduled computation already exists, revision #{existing_computation.ex_revision}, scheduled for #{existing_computation.scheduled_time}"
+          )
+
+          {:error, :computation_already_scheduled}
+      end
+    end)
+    |> case do
+      {:ok, {:error, :computation_already_scheduled}} ->
+        {:error, :computation_already_scheduled}
+
+      {:ok, result} ->
+        {:ok, result}
+    end
+  end
+
   def create_new_computation_record_if_one_doesnt_exist_lock(execution, step_name, expires_after_seconds)
       when is_atom(step_name) do
     # Create a new computation record. If one already exists, tell the caller.

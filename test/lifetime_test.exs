@@ -177,11 +177,18 @@ defmodule Journey.Test.Lifetime do
     assert execution
 
     # The remaining steps should promptly compute.
-    wait_for_result_to_compute(execution, :morning_update, 2_000, 100)
-    wait_for_result_to_compute(execution, :evening_check_in, 2_000, 100)
+    wait_for_result_to_compute(execution, :morning_update, 2_000, 100, :scheduled)
+    wait_for_result_to_compute(execution, :evening_check_in, 2_000, 100, :scheduled)
 
-    # The computation will eventually become computed.
-    wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :computed, true)
+    # The scheduled computations will eventually become computed.
+    # TODO: implemennt
+
+    # The final computation will eventually become computed.
+    # TODO: implemennt
+    # wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :computed, true)
+
+    # The schedulable steps will stop getting scheduled.
+    # TODO: implemennt
   end
 
   defp wait_for_result_to_compute(
@@ -208,10 +215,10 @@ defmodule Journey.Test.Lifetime do
         execution = Journey.Execution.reload(execution)
         execution |> Journey.Execution.get_summary() |> IO.puts()
 
-        most_recent_computation = Journey.Execution.Queries.get_most_recent_computation_status(execution, step_name)
+        computation = Journey.Execution.Queries.get_computation(execution, step_name, most_recent)
 
         assert false,
-               "step '#{step_name}' in '#{execution.process_id}' never became #{expected_status}, execution:\n#{inspect(execution, pretty: true)}, most recent task:\n#{inspect(most_recent_computation, pretty: true)}"
+               "step '#{step_name}' in '#{execution.process_id}' never became #{expected_status}, execution:\n#{inspect(execution, pretty: true)}, computation:\n#{inspect(computation, pretty: true)}"
     end
   end
 end

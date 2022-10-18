@@ -32,6 +32,8 @@ defmodule Journey.Process do
     # Every once in a while (between min_delay_seconds and 2 * min_delay_seconds),
     # detect and "sweep" abandoned tasks.
 
+    # TODO: move background sweepers into a separate module.
+
     Logger.info("delay_and_sweep: starting run (base delay: #{min_delay_in_seconds} seconds)")
 
     to_random_ms = fn base_sec ->
