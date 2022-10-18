@@ -9,4 +9,8 @@ defmodule Journey.Utilities do
   def object_id(prefix, length \\ 22) do
     prefix <> Nanoid.generate(length, @dictionary)
   end
+
+  defmacro f_name() do
+    elem(__CALLER__.function, 0)
+  end
 end

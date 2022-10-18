@@ -1,5 +1,6 @@
 defmodule Journey.Execution do
   require Logger
+  import Journey.Utilities, only: [f_name: 0]
 
   def new(process_id) do
     Journey.Execution.Store.create_new_execution_record(process_id)
@@ -21,7 +22,7 @@ defmodule Journey.Execution do
   end
 
   defp has_outstanding_dependencies?(step, execution) do
-    log_prefix = "has_outstanding_dependencies?[#{execution.id}.#{step.name}]"
+    log_prefix = "#{f_name()}[#{execution.id}.#{step.name}]"
 
     Logger.debug("#{log_prefix}: step in question: #{inspect(step, pretty: true)}")
 
@@ -84,7 +85,7 @@ defmodule Journey.Execution do
     )
   end
 
-  defp find_steps_ready_to_be_computed(execution, process) do
+  defp find_process_steps_ready_to_be_computed(execution, process) do
     all_step_names = process.steps |> Enum.map(fn p -> p.name end) |> MapSet.new()
 
     # These steps that we attempted to compute, whether or not we succeeded, or completed the computation.
@@ -110,7 +111,7 @@ defmodule Journey.Execution do
       end)
 
     Logger.info(
-      "find_steps_ready_to_be_computed[#{execution.id}]: #{Enum.count(steps_not_yet_computed_names)} steps available for execution: #{Enum.join(steps_not_yet_computed_names, ", ")}"
+      "#{f_name()}[#{execution.id}]: #{Enum.count(steps_not_yet_computed_names)} steps available for execution: #{Enum.join(steps_not_yet_computed_names, ", ")}"
     )
 
     process_steps_not_yet_computed
@@ -121,20 +122,13 @@ defmodule Journey.Execution do
     end)
   end
 
-  defp get_step_definition(execution, step_name) when is_atom(step_name) do
-    execution.process_id
-    |> Journey.ProcessCatalog.get()
-    |> Map.get(:steps)
-    |> Enum.find(fn process_step -> process_step.name == step_name end)
-  end
-
   def sweep_and_revisit_expired_computations() do
     # Sweep expired computations, and kick off processing for corresponding executions.
-    Logger.info("sweep_and_revisit_expired_computations: enter")
+    Logger.info("#{f_name()}: enter")
 
     Journey.Execution.Store.mark_abandoned_computations_as_expired()
     |> Enum.map(fn expired_computation ->
-      Logger.info("processing expired computation, #{inspect(expired_computation, pretty: true)}")
+      Logger.info("#{f_name()}: processing expired computation, #{inspect(expired_computation, pretty: true)}")
       expired_computation
     end)
     |> Enum.map(fn expired_computation -> expired_computation.execution_id end)
@@ -142,12 +136,13 @@ defmodule Journey.Execution do
     # Revisit the execution, those abandoned / expired computations might still need to be computed.
     |> Enum.each(&kick_off_or_schedule_unblocked_steps_if_any/1)
 
-    Logger.info("sweep_and_revisit_expired_computations: exit")
+    Logger.info("#{f_name()}: exit")
   end
 
-  defp start_computing_if_not_already_being_computed(execution, process_step) do
+  defp try_computing_or_scheduling(execution, process_step) do
     # If this step is not already being computed, start the computation.
-    func_name = "start_computing[#{execution.id}.#{process_step.name}]"
+    # func_name = "#{elem(__ENV__.function, 0)}[#{execution.id}.#{process_step.name}]"
+    func_name = "#{f_name()}[#{execution.id}.#{process_step.name}]"
     Logger.debug("#{func_name}: starting")
 
     {:ok, _pid} =
@@ -205,8 +200,8 @@ defmodule Journey.Execution do
     |> kick_off_or_schedule_unblocked_steps_if_any()
   end
 
-  defp kick_off_or_schedule_unblocked_steps_if_any(execution) do
-    log_prefix = "kick_off_or_schedule_unblocked_steps_if_any[#{execution.id}]"
+  defp kick_off_or_schedule_unblocked_steps_if_any(execution) when is_map(execution) do
+    log_prefix = "#{f_name()}[#{execution.id}]"
     process = Journey.ProcessCatalog.get(execution.process_id)
 
     execution =
@@ -214,17 +209,17 @@ defmodule Journey.Execution do
       |> reload()
 
     execution
-    |> find_steps_ready_to_be_computed(process)
+    |> find_process_steps_ready_to_be_computed(process)
     |> case do
       [] ->
         Logger.info("#{log_prefix}: no steps available to be computed")
         execution
 
-      [step | _] ->
-        Logger.info("#{log_prefix}: step '#{step.name}' is ready to compute")
+      [process_step | _] ->
+        Logger.info("#{log_prefix}: step '#{process_step.name}' is ready to compute")
 
         execution
-        |> start_computing_if_not_already_being_computed(step)
+        |> try_computing_or_scheduling(process_step)
         |> kick_off_or_schedule_unblocked_steps_if_any()
     end
   end
