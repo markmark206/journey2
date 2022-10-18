@@ -4,6 +4,7 @@ defmodule Journey.Process.Step do
   defstruct [
     :name,
     func: nil,
+    func_next_execution_time_epoch_seconds: nil,
     expires_after_seconds: 60,
     blocked_by: []
     # TODO: add retry policy

@@ -87,7 +87,7 @@ defmodule Journey.Test.Lifetime do
     Journey.Execution.sweep_and_revisit_expired_computations()
   end
 
-  test "expired tasks", %{test_id: test_id} do
+  test "expired computation, recomputed", %{test_id: test_id} do
     # TODO: implement
     # excercise process.start() and have a plan that takes too long to process things.
     # what to do with execution that now have multiple computations for the same task.
@@ -153,6 +153,35 @@ defmodule Journey.Test.Lifetime do
         execution |> Journey.Execution.get_summary() |> IO.puts()
         assert false, "`#{execution.process_id}` never reached completed state"
     end
+  end
+
+  test "scheduled recurring tasks, recomputed", %{test_id: test_id} do
+    user_id = "user_abandoned_tasks_#{test_id}"
+
+    # Start background sweep tasks. TODO: run this supervised / under OTP.
+    base_delay_for_background_tasks_seconds = 2
+    Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
+
+    # Start process execution.
+    execution =
+      Journey.Test.UserJourneyScheduledRecurring.itinerary()
+      |> Journey.Process.start()
+
+    assert execution
+
+    # Set the value for the 1st step.
+    execution =
+      execution
+      |> Journey.Execution.set_value(:user_id, user_id)
+
+    assert execution
+
+    # The remaining steps should promptly compute.
+    wait_for_result_to_compute(execution, :morning_update, 2_000, 100)
+    wait_for_result_to_compute(execution, :evening_check_in, 2_000, 100)
+
+    # The computation will eventually become computed.
+    wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :computed, true)
   end
 
   defp wait_for_result_to_compute(
