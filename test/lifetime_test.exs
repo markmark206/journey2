@@ -83,8 +83,6 @@ defmodule Journey.Test.Lifetime do
                Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
              ]
     end
-
-    Journey.Execution.sweep_and_revisit_expired_computations()
   end
 
   test "expired computation, recomputed", %{test_id: test_id} do

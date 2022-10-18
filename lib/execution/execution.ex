@@ -123,24 +123,6 @@ defmodule Journey.Execution do
     end)
   end
 
-  def sweep_and_revisit_expired_computations() do
-    # Sweep expired computations, and kick off processing for corresponding executions.
-    Logger.info("#{f_name()}: enter")
-
-    # TODO: what do we want to do with abandoned scheduled tasks? (run them now, or wait until next scheduled time?)
-    Journey.Execution.Store.mark_abandoned_computations_as_expired()
-    |> Enum.map(fn expired_computation ->
-      Logger.info("#{f_name()}: processing expired computation, #{inspect(expired_computation, pretty: true)}")
-      expired_computation
-    end)
-    |> Enum.map(fn expired_computation -> expired_computation.execution_id end)
-    |> Enum.uniq()
-    # Revisit the execution, those abandoned / expired computations might still need to be computed.
-    |> Enum.each(&kick_off_or_schedule_unblocked_steps_if_any/1)
-
-    Logger.info("#{f_name()}: exit")
-  end
-
   defp try_scheduling(execution, process_step) do
     func_name = "#{f_name()}[#{execution.id}.#{process_step.name}]"
     Logger.info("#{func_name}: starting")
@@ -233,13 +215,14 @@ defmodule Journey.Execution do
     execution |> reload()
   end
 
-  defp kick_off_or_schedule_unblocked_steps_if_any(execution_id) when is_binary(execution_id) do
+  # TODO: move execution scheduling functionality into its own module.
+  def kick_off_or_schedule_unblocked_steps_if_any(execution_id) when is_binary(execution_id) do
     execution_id
     |> Journey.Execution.Store.load(false)
     |> kick_off_or_schedule_unblocked_steps_if_any()
   end
 
-  defp kick_off_or_schedule_unblocked_steps_if_any(execution) when is_map(execution) do
+  def kick_off_or_schedule_unblocked_steps_if_any(execution) when is_map(execution) do
     log_prefix = "#{f_name()}[#{execution.id}]"
     process = Journey.ProcessCatalog.get(execution.process_id)
 
