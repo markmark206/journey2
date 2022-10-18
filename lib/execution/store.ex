@@ -4,6 +4,8 @@ defmodule Journey.Execution.Store do
   require Logger
   import Ecto.Query
 
+  import Journey.Utilities, only: [f_name: 0]
+
   @doc """
   Stores an execution.
   """
@@ -14,7 +16,7 @@ defmodule Journey.Execution.Store do
       }
       |> Journey.Repo.insert()
 
-    Logger.debug("create_new_execution_record: created record '#{execution_db_record.id}' for process '#{process_id}'")
+    Logger.debug("#{f_name()}: created record '#{execution_db_record.id}' for process '#{process_id}'")
 
     execution_db_record
     |> Journey.Repo.preload([:computations])
@@ -24,7 +26,7 @@ defmodule Journey.Execution.Store do
       when is_atom(step_name) do
     # Create a new computation record. If one already exists, tell the caller.
 
-    func_name = "create_new_computation_record_if_one_doesnt_exist_lock[#{execution.id}.#{step_name}]"
+    func_name = "#{f_name()}[#{execution.id}.#{step_name}]"
     Logger.debug("#{func_name}: starting")
 
     step_name_string = Atom.to_string(step_name)
@@ -87,7 +89,7 @@ defmodule Journey.Execution.Store do
   end
 
   def complete_computation_and_record_result(execution, computation, step_name, value) do
-    func_name = "complete_computation_and_record_result[#{execution.id}][#{step_name}]"
+    func_name = "#{f_name()}[#{execution.id}][#{step_name}]"
     Logger.debug("#{func_name}: start")
 
     step_name_string = Atom.to_string(step_name)
@@ -128,7 +130,7 @@ defmodule Journey.Execution.Store do
       |> inspect(pretty: true)
       |> String.slice(0, 200)
 
-    func_name = "mark_computation_as_failed[#{execution.id}][#{step_name}]"
+    func_name = "#{f_name()}[#{execution.id}][#{step_name}]"
 
     Logger.debug("#{func_name}: start. error details: #{error_details_printable}")
 
@@ -164,7 +166,7 @@ defmodule Journey.Execution.Store do
   end
 
   def set_value(execution, step_name, value) do
-    Logger.debug("set_value [#{execution.id}][#{step_name}]")
+    Logger.debug("#{f_name()}[#{execution.id}][#{step_name}]")
 
     {:ok, _result} =
       Journey.Repo.transaction(fn repo ->
@@ -233,15 +235,9 @@ defmodule Journey.Execution.Store do
       )
       |> Journey.Repo.update_all(set: [result_code: :expired])
 
-    Logger.info("mark_abandoned_computations_as_expired: processed #{count} abandoned computations")
+    Logger.info("#{f_name()}: processed #{count} abandoned computations")
 
     updated_items
-  end
-
-  def get_executions_to_kick_off() do
-    # computations that are
-    # - scheduled, but whose status is nil (do this later, for timed tasks)
-    # - computing, but haven't completed within their limit
   end
 
   defp cleanup_computations(execution) do
