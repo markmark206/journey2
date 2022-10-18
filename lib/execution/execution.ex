@@ -145,7 +145,7 @@ defmodule Journey.Execution do
     Logger.info("sweep_and_revisit_expired_computations: exit")
   end
 
-  defp start_computing_if_not_already_being_computed(step, execution) do
+  defp start_computing_if_not_already_being_computed(execution, step) do
     # If this step is not already being computed, start the computation.
     func_name = "start_computing[#{execution.id}.#{step.name}]"
     Logger.debug("#{func_name}: starting")
@@ -224,8 +224,10 @@ defmodule Journey.Execution do
 
       [step | _] ->
         Logger.info("#{log_prefix}: step '#{step.name}' is ready to compute")
-        execution = start_computing_if_not_already_being_computed(step, execution)
-        kick_off_unblocked_steps_if_any(execution)
+
+        execution
+        |> start_computing_if_not_already_being_computed(step)
+        |> kick_off_unblocked_steps_if_any()
     end
   end
 end
