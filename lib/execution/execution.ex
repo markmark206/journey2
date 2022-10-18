@@ -8,7 +8,7 @@ defmodule Journey.Execution do
   def set_value(execution, step, value) do
     execution
     |> Journey.Execution.Store.set_value(step, value)
-    |> kick_off_unblocked_steps_if_any()
+    |> kick_off_or_schedule_unblocked_steps_if_any()
   end
 
   def reload(execution) do
@@ -110,7 +110,7 @@ defmodule Journey.Execution do
       end)
 
     Logger.info(
-      "kick_off_unblocked_steps_if_any[#{execution.id}]: #{Enum.count(steps_not_yet_computed_names)} steps available for execution: #{Enum.join(steps_not_yet_computed_names, ", ")}"
+      "find_steps_ready_to_be_computed[#{execution.id}]: #{Enum.count(steps_not_yet_computed_names)} steps available for execution: #{Enum.join(steps_not_yet_computed_names, ", ")}"
     )
 
     process_steps_not_yet_computed
@@ -140,37 +140,35 @@ defmodule Journey.Execution do
     |> Enum.map(fn expired_computation -> expired_computation.execution_id end)
     |> Enum.uniq()
     # Revisit the execution, those abandoned / expired computations might still need to be computed.
-    |> Enum.each(&kick_off_unblocked_steps_if_any/1)
+    |> Enum.each(&kick_off_or_schedule_unblocked_steps_if_any/1)
 
     Logger.info("sweep_and_revisit_expired_computations: exit")
   end
 
-  defp start_computing_if_not_already_being_computed(execution, step) do
+  defp start_computing_if_not_already_being_computed(execution, process_step) do
     # If this step is not already being computed, start the computation.
-    func_name = "start_computing[#{execution.id}.#{step.name}]"
+    func_name = "start_computing[#{execution.id}.#{process_step.name}]"
     Logger.debug("#{func_name}: starting")
-
-    step_definition = get_step_definition(execution, step.name)
 
     {:ok, _pid} =
       Task.start(fn ->
         Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(
           execution,
-          step.name,
-          step_definition.expires_after_seconds
+          process_step.name,
+          process_step.expires_after_seconds
         )
         |> case do
           {:ok, computation_object} ->
             # Successfully created a computation object. Proceed with the computation.
             try do
               Logger.info("#{func_name}: created a new computation object, performing the computation")
-              # TODO: kick off an asynchronous execution.
-              {:ok, result} = step.func.(execution)
+              # TODO: handle {:error, ...}
+              {:ok, result} = process_step.func.(execution)
 
               Journey.Execution.Store.complete_computation_and_record_result(
                 execution,
                 computation_object,
-                step.name,
+                process_step.name,
                 result
               )
             rescue
@@ -185,12 +183,12 @@ defmodule Journey.Execution do
                 Journey.Execution.Store.mark_computation_as_failed(
                   execution,
                   computation_object,
-                  step.name,
+                  process_step.name,
                   error_string
                 )
             end
 
-            kick_off_unblocked_steps_if_any(execution)
+            kick_off_or_schedule_unblocked_steps_if_any(execution)
 
           {:error, :computation_exists} ->
             # The computation object for this step already exists. No need to perform the computation.
@@ -201,14 +199,14 @@ defmodule Journey.Execution do
     execution |> reload()
   end
 
-  defp kick_off_unblocked_steps_if_any(execution_id) when is_binary(execution_id) do
+  defp kick_off_or_schedule_unblocked_steps_if_any(execution_id) when is_binary(execution_id) do
     execution_id
     |> Journey.Execution.Store.load(false)
-    |> kick_off_unblocked_steps_if_any()
+    |> kick_off_or_schedule_unblocked_steps_if_any()
   end
 
-  defp kick_off_unblocked_steps_if_any(execution) do
-    log_prefix = "kick_off_unblocked_steps_if_any[#{execution.id}]"
+  defp kick_off_or_schedule_unblocked_steps_if_any(execution) do
+    log_prefix = "kick_off_or_schedule_unblocked_steps_if_any[#{execution.id}]"
     process = Journey.ProcessCatalog.get(execution.process_id)
 
     execution =
@@ -227,7 +225,7 @@ defmodule Journey.Execution do
 
         execution
         |> start_computing_if_not_already_being_computed(step)
-        |> kick_off_unblocked_steps_if_any()
+        |> kick_off_or_schedule_unblocked_steps_if_any()
     end
   end
 end
