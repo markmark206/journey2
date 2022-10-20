@@ -1,1 +1,2 @@
 ExUnit.start(exclude: [:skip])
+# Ecto.Adapters.SQL.Sandbox.mode(Journey.Repo, :manual)

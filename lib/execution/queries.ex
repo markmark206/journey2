@@ -2,12 +2,12 @@ defmodule Journey.Execution.Queries do
   def get_computation(execution, computation_name, most_recent \\ true) do
     # Get the most or least recent computation for the given task name.
     execution
-    |> get_computations(computation_name)
-    |> Enum.sort(fn c1, c2 ->
+    |> get_sorted_computations(computation_name)
+    |> then(fn computations ->
       if most_recent do
-        c1.ex_revision > c2.ex_revision
+        computations
       else
-        c1.ex_revision < c2.ex_revision
+        computations |> Enum.reverse()
       end
     end)
     |> Enum.take(1)
@@ -15,6 +15,14 @@ defmodule Journey.Execution.Queries do
       [] -> nil
       [head | _] -> head
     end
+  end
+
+  def get_sorted_computations(execution, computation_name) do
+    execution
+    |> get_computations(computation_name)
+    |> Enum.sort(fn c1, c2 ->
+      c1.ex_revision > c2.ex_revision
+    end)
   end
 
   def get_computations(execution, computation_name) do

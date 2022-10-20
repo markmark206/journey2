@@ -87,6 +87,60 @@ defmodule Journey.Execution.Store do
     end
   end
 
+  def mark_scheduled_computation_as_computing(execution, step_name, expires_after_seconds)
+      when is_atom(step_name) do
+    # Create a new computation record. If one already exists, tell the caller.
+
+    func_name = "#{f_name()}[#{execution.id}.#{step_name}]"
+    Logger.debug("#{func_name}: starting")
+
+    step_name_string = Atom.to_string(step_name)
+    now = Journey.Utilities.curent_unix_time_sec()
+
+    Journey.Repo.transaction(fn repo ->
+      _execution_db_record =
+        from(ex in Journey.Schema.Execution,
+          where: ex.id == ^execution.id,
+          lock: "FOR UPDATE"
+        )
+        |> repo.one!()
+
+      from(
+        computation in Journey.Schema.Computation,
+        where:
+          computation.execution_id == ^execution.id and computation.name == ^step_name_string and
+            computation.result_code == ^:scheduled,
+        # order_by: [desc: :ex_revision],
+        # limit: 1,
+        select: computation
+      )
+      |> Journey.Repo.update_all(
+        set: [
+          start_time: now,
+          deadline: now + expires_after_seconds,
+          result_code: :computing
+        ]
+      )
+      |> case do
+        {1, [updated_item]} ->
+          Logger.debug("#{func_name}: :scheduled computation updated to :computing #{updated_item.id}")
+
+          {:ok, updated_item}
+
+        {0, []} ->
+          Logger.debug("#{func_name}: there is no outstanding scheduled computation")
+          {:error, :no_scheduled_computation_exists}
+      end
+    end)
+    |> case do
+      {:ok, {:error, :no_scheduled_computation_exists}} ->
+        {:error, :no_scheduled_computation_exists}
+
+      {:ok, {:ok, updated_item}} ->
+        {:ok, updated_item}
+    end
+  end
+
   def create_new_computation_record_if_one_doesnt_exist_lock(execution, step_name, expires_after_seconds)
       when is_atom(step_name) do
     # Create a new computation record. If one already exists, tell the caller.
@@ -151,6 +205,50 @@ defmodule Journey.Execution.Store do
       {:ok, result} ->
         {:ok, result}
     end
+  end
+
+  @spec find_scheduled_computations_same_scheduled_time :: list(map())
+  def find_scheduled_computations_same_scheduled_time() do
+    from(
+      c in Journey.Schema.Computation,
+      where: c.scheduled_time > 0,
+      group_by: [c.name, c.execution_id, c.scheduled_time],
+      having: count(c.name) > 1,
+      select: %{
+        name: c.name,
+        execution_id: c.execution_id,
+        scheduled_time: c.scheduled_time,
+        count: count(c.name)
+      }
+    )
+    |> Journey.Repo.all()
+  end
+
+  def find_scheduled_computations_that_are_past_due(past_due_by_longer_than_seconds) do
+    # TODO: think about cascading failures. if the system becomes overloaded, and falls behind on processing and more scheduled tasks become past due, this will cause more attemepts to kick off the computations.
+    cut_off_time_epoch_seconds = Journey.Utilities.curent_unix_time_sec() - past_due_by_longer_than_seconds
+
+    from(
+      computation in Journey.Schema.Computation,
+      where: computation.result_code == ^:scheduled and computation.scheduled_time < ^cut_off_time_epoch_seconds,
+      select: computation.execution_id
+    )
+    |> Journey.Repo.all()
+  end
+
+  def find_executions_with_unscheduled_schedulable_tasks() do
+    # Find computations whose last revision was related to a scheduled task getting completed. This catches the condition where things went sideways after a scheduled task completed, before a new computation was able to get scheduled.
+
+    from(
+      computation in Journey.Schema.Computation,
+      join: execution in Journey.Schema.Execution,
+      on: computation.execution_id == execution.id,
+      where:
+        computation.ex_revision == execution.revision and computation.scheduled_time != ^0 and
+          computation.result_code != ^:scheduled,
+      select: execution.id
+    )
+    |> Journey.Repo.all()
   end
 
   def complete_computation_and_record_result(execution, computation, step_name, value) do
@@ -300,7 +398,13 @@ defmodule Journey.Execution.Store do
       )
       |> Journey.Repo.update_all(set: [result_code: :expired])
 
-    Logger.info("#{f_name()}: processed #{count} abandoned computations")
+    if count > 0 do
+      Logger.info(
+        "#{f_name()}: processed #{count} abandoned computations, marked: #{inspect(updated_items, pretty: true)}"
+      )
+    else
+      Logger.info("#{f_name()}: processed #{count} abandoned computations")
+    end
 
     updated_items
   end

@@ -1,11 +1,12 @@
 defmodule Journey.Test.UserJourneyAbandonedSweeps do
   require Logger
+  import Journey.Utilities, only: [f_name: 0]
 
   @abandoned_task_expires_after_seconds 10
 
   def itinerary() do
     %Journey.Process{
-      process_id: "user journey with an abandoned task",
+      process_id: "#{__MODULE__}",
       steps: [
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
@@ -36,11 +37,11 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
   end
 
   def send_evening_check_in(execution) do
-    function_name = "send_evening_check_in[#{user_id(execution)}]"
+    function_name = "[#{f_name()}][#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "evening check in completed for user #{user_id(execution)}"
+    run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
     Logger.info("#{function_name}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
@@ -58,11 +59,11 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
   end
 
   def send_morning_update(execution) do
-    function_name = "send_morning_update[#{user_id(execution)}]"
+    function_name = "[#{f_name()}][#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "morning update completed for user #{user_id(execution)}"
+    run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
 
     Logger.info("#{function_name}: done.")
 
@@ -85,7 +86,7 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
   end
 
   def user_lifetime_completed(execution) do
-    function_name = "user_lifetime_completed[#{user_id(execution)}]"
+    function_name = "[#{f_name()}][#{user_id(execution)}]"
     Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
 
     # All of the upstream tasks must have been computed before this task starts computing.
