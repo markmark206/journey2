@@ -281,7 +281,7 @@ defmodule Journey.Test.Lifetime do
   defp wait_for_all_steps_to_be_completed(execution, check_wait, check_frequency) do
     case WaitForIt.wait(
            Journey.Execution.reload(execution)
-           |> Journey.Execution.names_of_steps_not_yet_fully_computed()
+           |> Journey.Execution.Scheduler.names_of_steps_not_yet_fully_computed()
            |> Enum.count() == 0,
            timeout: check_wait,
            frequency: check_frequency
