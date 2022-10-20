@@ -369,6 +369,7 @@ defmodule Journey.Execution.Store do
   def load(execution_id, include_computations) when is_binary(execution_id) do
     Logger.info("load[#{execution_id}]: reloading")
 
+    computations_query =
     Journey.Repo.get(Journey.Schema.Execution, execution_id)
     |> then(fn execution ->
       if include_computations do

@@ -25,6 +25,12 @@ defmodule Journey.Execution.Queries do
     end)
   end
 
+  def get_sorted_computations_by_status(execution, computation_name, state) do
+    execution
+    |> get_sorted_computations(computation_name)
+    |> Enum.filter(fn c -> c.result_code == state end)
+  end
+
   def get_computations(execution, computation_name) do
     # Get all computations for the given task name.
 

@@ -117,7 +117,7 @@ defmodule Journey.Test.Lifetime do
     Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
 
     user_ids =
-      for sequence <- 1..200 do
+      for sequence <- 1..1 do
         "user_abandoned_tasks_#{test_id}_#{sequence}"
       end
 
@@ -145,8 +145,8 @@ defmodule Journey.Test.Lifetime do
     executions_and_users
     |> Enum.map(fn {execution, user_id} ->
       # The remaining steps should promptly compute.
-      wait_for_result_to_compute(execution, :morning_update, 2_000, 100)
-      wait_for_result_to_compute(execution, :evening_check_in, 2_000, 100)
+      wait_for_result_to_compute(execution, :morning_update, 10_000, 1000)
+      wait_for_result_to_compute(execution, :evening_check_in, 10_000, 1000)
 
       # The computation will eventually become expired.
       wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :expired, false)
@@ -220,13 +220,14 @@ defmodule Journey.Test.Lifetime do
       Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
       # Start background sweep tasks. TODO: run this supervised / under OTP.
-      base_delay_for_background_tasks_seconds = 2
+      base_delay_for_background_tasks_seconds = 4
       Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
 
       # Start process execution.
       execution =
         Journey.Test.UserJourneyScheduledRecurring.itinerary()
         |> Journey.Process.start()
+        |> IO.inspect(label: "what is happening here")
 
       assert execution
 

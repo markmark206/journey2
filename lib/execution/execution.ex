@@ -16,7 +16,8 @@ defmodule Journey.Execution do
   def set_value(execution, step, value) do
     execution
     |> Journey.Execution.Store.set_value(step, value)
-    |> Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any()
+    # |> Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any()
+    |> Journey.Execution.Scheduler2.advance()
   end
 
   def reload(execution) do

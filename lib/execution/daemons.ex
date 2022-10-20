@@ -46,7 +46,8 @@ defmodule Journey.Execution.Daemons do
        collect_past_due_scheduled_computations() ++ collect_unscheduled_scheduled_executions())
     |> Enum.uniq()
     # Revisit the execution, those abandoned / expired computations might still need to be computed.
-    |> Enum.each(&Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any/1)
+    # |> Enum.each(&Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any/1)
+    |> Enum.each(&Journey.Execution.Scheduler2.advance/1)
 
     Logger.info("#{f_name()}: exit")
   end
