@@ -15,12 +15,9 @@ defmodule Journey.Execution.Scheduler2 do
       execution
       |> Journey.Execution.Store.load()
 
-    # |> IO.inspect(label: "reloaded execution1")
-
     execution
     |> get_schedulable_steps()
-    # |> IO.inspect(label: "schedulable computations for chickens")
-    |> Enum.map(fn process_step -> try_scheduling_process_tasks(process_step, execution) end)
+    |> Enum.each(fn process_step -> try_scheduling_process_tasks(process_step, execution) end)
 
     execution =
       execution
@@ -42,7 +39,6 @@ defmodule Journey.Execution.Scheduler2 do
   defp get_schedulable_steps(execution) do
     func_name = "#{f_name()}[#{execution.id}]"
     Logger.info("#{func_name}: enter")
-    # IO.inspect(execution, label: "execution in get_schedulable_steps")
     process = Journey.ProcessCatalog.get(execution.process_id)
 
     process.steps
@@ -55,12 +51,8 @@ defmodule Journey.Execution.Scheduler2 do
       |> Enum.empty?()
       |> dbg()
     end)
-    # |> IO.inspect(label: "yes or no")
     # We only care about steps that don't have any unfulfilled upstream dependencies.
     |> Enum.filter(fn process_step -> !has_outstanding_dependencies?(process_step, execution) end)
-
-    # |> IO.inspect(label: "why oh why")
-    # |> dbg()
 
     # |> Enum.map(fn process_step -> process_step.name end)
   end
@@ -93,10 +85,56 @@ defmodule Journey.Execution.Scheduler2 do
   end
 
   defp get_runnable_process_steps(execution) do
-    []
+    # TODO: move scheduling logic to, perhaps, a dedicated module.
+    process = Journey.ProcessCatalog.get(execution.process_id)
+
+    all_runnable_steps =
+      process.steps
+      |> Enum.filter(fn c -> c.func != nil end)
+      |> Enum.map(fn p -> p.name end)
+      |> MapSet.new()
+
+    now = Journey.Utilities.curent_unix_time_sec()
+
+    one_time_computations =
+      execution.computations
+      |> Enum.filter(fn c -> c.scheduled_time == 0 end)
+      |> Enum.filter(fn c -> c.result_code in [:computing, :computed, :failed] end)
+      |> Enum.map(fn c -> c.name end)
+      |> MapSet.new()
+
+    all_schedulable_taks =
+      process.steps
+      |> Enum.filter(fn process_step -> process_step.func_next_execution_time_epoch_seconds == 0 end)
+      |> Enum.map(fn c -> c.name end)
+      |> MapSet.new()
+
+    all_scheduled_computations_whose_time_has_come =
+      execution.computations
+      |> Enum.filter(fn c -> c.scheduled_time <= now end)
+      |> Enum.filter(fn c -> c.result_code == :scheduled end)
+      |> Enum.map(fn c -> c.name end)
+      |> MapSet.new()
+
+    # all_step_names - one_time_computations - all_schedulable_taks + all_scheduled_computations_whose_time_has_come
+
+    all_runnable_steps
+    # Subtract all one-time computations that have taken place / are taking place.
+    |> MapSet.difference(one_time_computations)
+    # Subtract all schedulable tasks.
+    |> MapSet.difference(all_schedulable_taks)
+    # Add back all scheduled tasks whose time has come.
+    |> MapSet.union(all_scheduled_computations_whose_time_has_come)
+    # credo:disable-for-next-line Credo.Check.Refactor.FilterFilter
+    |> Enum.filter(fn step_name ->
+      step = Journey.Process.find_step_by_name(process, step_name)
+      !has_outstanding_dependencies?(step, execution)
+    end)
+    |> IO.inspect(label: "duck: steps not computed and not blocked")
   end
 
   defp try_running(execution, runnable_process_step) do
+    IO.inspect(runnable_process_step, label: "goose try to execute these tasks")
     execution
   end
 
@@ -150,4 +188,59 @@ defmodule Journey.Execution.Scheduler2 do
 
     execution
   end
+
+  # defp try_computing_a_scheduled_task(execution, process_step) do
+  #   func_name = "#{f_name()}[#{execution.id}.#{process_step.name}]"
+  #   Logger.info("#{func_name}: starting")
+
+  #   Journey.Execution.Store.mark_scheduled_computation_as_computing(
+  #     execution,
+  #     process_step.name,
+  #     process_step.expires_after_seconds
+  #   )
+  #   |> case do
+  #     {:ok, computation_object} ->
+  #       # TODO: move the calls to `process_step.func.(execution)` and its handling to a separate function.
+  #       # Successfully updated a scheduled computation object. Proceed with the computation.
+  #       try do
+  #         Logger.info("#{func_name}: picked up a scheduled computation object, starting the computation")
+  #         # TODO: handle {:error, ...}
+  #         {:ok, result} = process_step.func.(execution)
+
+  #         Journey.Execution.Store.complete_computation_and_record_result(
+  #           execution,
+  #           computation_object,
+  #           process_step.name,
+  #           result
+  #         )
+  #       rescue
+  #         exception ->
+  #           # Processing failed.
+  #           error_string = Exception.format(:error, exception, __STACKTRACE__)
+
+  #           Logger.error(
+  #             "#{func_name}: failed to execute this step's function. computation id: #{computation_object.id}, error: #{error_string}"
+  #           )
+
+  #           Journey.Execution.Store.mark_computation_as_failed(
+  #             execution,
+  #             computation_object,
+  #             process_step.name,
+  #             error_string
+  #           )
+  #       end
+
+  #       # TODO: There is a slight window here, where if the service dies while we are here, another computation will not get scheduled.
+  #       # this might lead to the execution getting dropped and never getting processed again (no daemon will pick it up).
+  #       #
+  #       # a possible direction for a fix is to have a daemon look into executions whose last change
+  #       # select computations.name, computations.result_code, executions.revision, executions.id, computations.id from executions join computations on executions.id=computations.execution_id where computations.ex_revision=executions.revision and computations.scheduled_time!=0 and computations.result_code!='scheduled';
+  #       kick_off_or_schedule_unblocked_steps_if_any(execution)
+
+  #     {:error, :no_scheduled_computation_exists} ->
+  #       # The computation object for this step already exists. No need to perform the computation.
+  #       Logger.warn("#{func_name}: computation already exists, not starting")
+  #       execution
+  #   end
+  # end
 end
