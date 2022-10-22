@@ -1,7 +1,6 @@
 defmodule Journey.Test.Lifetime do
   # use ExUnit.Case
   use Journey.RepoCase
-  import Ecto.Query
 
   require Logger
 
@@ -13,345 +12,289 @@ defmodule Journey.Test.Lifetime do
 
   @tag timeout: 600_000
   test "execute a basic process", %{test_id: test_id} do
-    Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
-      for slow <- [true, false] do
-        for fail <- [true, false] do
-          user_id = "user_basic_#{slow}_#{fail}_#{test_id}"
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    Journey.Process.register_itinerary(Journey.Test.UserJourney.itinerary())
 
-          itinerary = Journey.Test.UserJourney.itinerary(slow, fail)
-          Journey.Process.register_itinerary(itinerary)
+    for slow <- [true, false] do
+      for fail <- [true, false] do
+        user_id = "user_basic_#{slow}_#{fail}_#{test_id}"
 
-          execution =
-            itinerary
-            |> Journey.Process.start()
+        itinerary = Journey.Test.UserJourney.itinerary(slow, fail)
+        Journey.Process.register_itinerary(itinerary)
 
-          assert execution
+        execution =
+          itinerary
+          |> Journey.Process.start()
 
-          if slow do
-            :timer.sleep(1000)
-          end
+        assert execution
 
-          # Set the value for the 1st step.
-          execution =
-            execution
-            |> Journey.Execution.set_value(:user_id, user_id)
+        if slow do
+          :timer.sleep(1000)
+        end
 
-          assert execution
+        # Set the value for the 1st step.
+        execution =
+          execution
+          |> Journey.Execution.set_value(:user_id, user_id)
 
-          # Logger.info("waiting a while before exising test...")
-          # :timer.sleep(300_000)
-          # Logger.info("... test exising")
-          # The remaining steps should promptly compute.
-          wait_for_result_to_compute(execution, :morning_update, check_wait(slow), check_frequency(slow))
-          wait_for_result_to_compute(execution, :evening_check_in, check_wait(slow), check_frequency(slow))
+        assert execution
 
-          wait_for_result_to_compute(
-            execution,
-            :user_lifetime_completed,
-            check_wait(slow),
-            check_frequency(slow),
-            if(fail, do: :failed, else: :computed)
-          )
+        # The remaining steps should promptly compute.
+        wait_for_result_to_compute(execution, :morning_update, check_wait(slow), check_frequency(slow))
+        wait_for_result_to_compute(execution, :evening_check_in, check_wait(slow), check_frequency(slow))
 
-          wait_for_all_steps_to_be_completed(execution, check_wait(slow), check_frequency(slow))
+        wait_for_result_to_compute(
+          execution,
+          :user_lifetime_completed,
+          check_wait(slow),
+          check_frequency(slow),
+          if(fail, do: :failed, else: :computed)
+        )
 
-          execution =
-            execution
-            |> Journey.Execution.reload()
+        wait_for_all_steps_to_be_completed(execution, check_wait(slow), check_frequency(slow))
 
-          one_year_ish = 60 * 60 * 24 * 365
-          now = Journey.Utilities.curent_unix_time_sec()
-          assert Journey.Execution.Queries.get_computation_status(execution, :started_at) == :computed
-          assert Journey.Execution.Queries.get_computation(execution, :started_at).error_details == nil
-          assert Journey.Execution.Queries.get_computation_value(execution, :started_at) <= now
-          assert Journey.Execution.Queries.get_computation_value(execution, :started_at) >= now - one_year_ish
+        execution =
+          execution
+          |> Journey.Execution.reload()
 
-          assert Journey.Execution.Queries.get_computation_status(execution, :user_id) == :computed
-          assert Journey.Execution.Queries.get_computation(execution, :user_id).error_details == nil
-          assert Journey.Execution.Queries.get_computation_value(execution, :user_id) == user_id
+        one_year_ish = 60 * 60 * 24 * 365
+        now = Journey.Utilities.curent_unix_time_sec()
+        assert Journey.Execution.Queries.get_computation_status(execution, :started_at) == :computed
+        assert Journey.Execution.Queries.get_computation(execution, :started_at).error_details == nil
+        assert Journey.Execution.Queries.get_computation_value(execution, :started_at) <= now
+        assert Journey.Execution.Queries.get_computation_value(execution, :started_at) >= now - one_year_ish
 
-          assert Journey.Execution.Queries.get_computation_status(execution, :morning_update) == :computed
-          assert Journey.Execution.Queries.get_computation(execution, :morning_update).error_details == nil
+        assert Journey.Execution.Queries.get_computation_status(execution, :user_id) == :computed
+        assert Journey.Execution.Queries.get_computation(execution, :user_id).error_details == nil
+        assert Journey.Execution.Queries.get_computation_value(execution, :user_id) == user_id
 
-          expected_morning_update_result =
-            "Elixir.Journey.Test.UserJourney_slow_#{slow}_fail_#{fail}.send_morning_update for user #{user_id}"
+        assert Journey.Execution.Queries.get_computation_status(execution, :morning_update) == :computed
+        assert Journey.Execution.Queries.get_computation(execution, :morning_update).error_details == nil
 
-          assert Journey.Execution.Queries.get_computation_value(execution, :morning_update) ==
-                   expected_morning_update_result
+        expected_morning_update_result =
+          "Elixir.Journey.Test.UserJourney_slow_#{slow}_fail_#{fail}.send_morning_update for user #{user_id}"
 
-          assert Journey.Execution.Queries.get_computation_status(execution, :evening_check_in) == :computed
-          assert Journey.Execution.Queries.get_computation(execution, :evening_check_in).error_details == nil
+        assert Journey.Execution.Queries.get_computation_value(execution, :morning_update) ==
+                 expected_morning_update_result
 
-          expected_evening_checkin_result =
-            "Elixir.Journey.Test.UserJourney_slow_#{slow}_fail_#{fail}.send_evening_check_in for user #{user_id}"
+        assert Journey.Execution.Queries.get_computation_status(execution, :evening_check_in) == :computed
+        assert Journey.Execution.Queries.get_computation(execution, :evening_check_in).error_details == nil
 
-          assert Journey.Execution.Queries.get_computation_value(execution, :evening_check_in) ==
-                   expected_evening_checkin_result
+        expected_evening_checkin_result =
+          "Elixir.Journey.Test.UserJourney_slow_#{slow}_fail_#{fail}.send_evening_check_in for user #{user_id}"
 
-          if fail do
-            assert Journey.Execution.Queries.get_computation_status(execution, :user_lifetime_completed) == :failed
-            assert Journey.Execution.Queries.get_computation(execution, :user_lifetime_completed).error_details != nil
-            assert Journey.Execution.Queries.get_computation_value(execution, :user_lifetime_completed) == nil
-          else
-            assert Journey.Execution.Queries.get_computation_status(execution, :user_lifetime_completed) == :computed
-            assert Journey.Execution.Queries.get_computation(execution, :user_lifetime_completed).error_details == nil
+        assert Journey.Execution.Queries.get_computation_value(execution, :evening_check_in) ==
+                 expected_evening_checkin_result
 
-            assert Journey.Execution.Queries.get_computation_value(execution, :user_lifetime_completed) == [
-                     "Elixir.Journey.Test.UserJourney_slow_#{slow}_fail_#{fail}.user_lifetime_completed for user #{user_id}",
-                     Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
-                   ]
-          end
+        if fail do
+          assert Journey.Execution.Queries.get_computation_status(execution, :user_lifetime_completed) == :failed
+          assert Journey.Execution.Queries.get_computation(execution, :user_lifetime_completed).error_details != nil
+          assert Journey.Execution.Queries.get_computation_value(execution, :user_lifetime_completed) == nil
+        else
+          assert Journey.Execution.Queries.get_computation_status(execution, :user_lifetime_completed) == :computed
+          assert Journey.Execution.Queries.get_computation(execution, :user_lifetime_completed).error_details == nil
+
+          assert Journey.Execution.Queries.get_computation_value(execution, :user_lifetime_completed) == [
+                   "Elixir.Journey.Test.UserJourney_slow_#{slow}_fail_#{fail}.user_lifetime_completed for user #{user_id}",
+                   Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
+                 ]
         end
       end
-    end)
+    end
+
+    # end)
   end
 
   @tag timeout: 200_000
   test "expired computation, recomputed", %{test_id: test_id} do
-    Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
-      # TODO: implement
-      # excercise process.start() and have a plan that takes too long to process things.
-      # what to do with execution that now have multiple computations for the same task.
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    # TODO: implement
+    # excercise process.start() and have a plan that takes too long to process things.
+    # what to do with execution that now have multiple computations for the same task.
 
-      Journey.Process.register_itinerary(Journey.Test.UserJourneyAbandonedSweeps.itinerary())
+    Journey.Process.register_itinerary(Journey.Test.UserJourneyAbandonedSweeps.itinerary())
 
-      # Start background sweep tasks. TODO: run this supervised / under OTP.
-      base_delay_for_background_tasks_seconds = 2
-      Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
+    # Start background sweep tasks. TODO: run this supervised / under OTP.
+    base_delay_for_background_tasks_seconds = 2
+    Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
 
-      user_ids =
-        for sequence <- 1..1 do
-          "user_abandoned_tasks_#{test_id}_#{sequence}"
-        end
+    user_ids =
+      for sequence <- 1..100 do
+        "user_abandoned_tasks_#{test_id}_#{sequence}"
+      end
 
-      # Kick off all the executions.
-      executions_and_users =
-        user_ids
-        |> Enum.map(fn user_id ->
-          # Start process execution.
-          execution =
-            Journey.Test.UserJourneyAbandonedSweeps.itinerary()
-            |> Journey.Process.start()
+    # Kick off all the executions.
+    executions_and_users =
+      user_ids
+      |> Enum.map(fn user_id ->
+        # Start process execution.
+        execution =
+          Journey.Test.UserJourneyAbandonedSweeps.itinerary()
+          |> Journey.Process.start()
 
-          assert execution
-
-          # Set the value for the 1st step.
-          execution =
-            execution
-            |> Journey.Execution.set_value(:user_id, user_id)
-
-          assert execution
-          {execution, user_id}
-        end)
-
-      # Collect amd verify the results from every execution
-      executions_and_users
-      |> Enum.map(fn {execution, user_id} ->
-        # The remaining steps should promptly compute.
-        wait_for_result_to_compute(execution, :morning_update, 10_000, 1000)
-        wait_for_result_to_compute(execution, :evening_check_in, 10_000, 1000)
-
-        # The computation will eventually become expired.
-        wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :expired, false)
-
-        # The computation will eventually be retried, and become computed.
-        wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :computed, true)
-
-        execution = execution |> Journey.Execution.reload()
-        # There should be two computations for :user_lifetime_completed at this point.
         assert execution
-               |> Journey.Execution.Queries.get_computations(:user_lifetime_completed)
-               |> Enum.count() == 2
 
-        assert execution.revision == 6, "execution #{execution.id} does not have the expected number of revisions"
+        # Set the value for the 1st step.
+        execution =
+          execution
+          |> Journey.Execution.set_value(:user_id, user_id)
 
-        assert execution.computations |> Enum.count() == 6
-
-        # Verify that computations look like what we expect.
-        [
-          c1,
-          c2,
-          c3,
-          c4,
-          c5,
-          c6
-        ] = execution.computations
-
-        # Keeping pattern matching for individual computations separate, so it's easier to investigate failures.
-        %{name: :started_at, result_code: :computed, scheduled_time: 0, error_details: nil, ex_revision: 1} = c1
-
-        %{
-          name: :user_id,
-          result_code: :computed,
-          scheduled_time: 0,
-          error_details: nil,
-          result_value: ^user_id,
-          ex_revision: 2
-        } = c2
-
-        %{name: _morning_or_evening_check, scheduled_time: 0, result_code: :computed, ex_revision: 3} = c3
-        %{name: _morning_or_evening_check, scheduled_time: 0, result_code: :computed, ex_revision: 4} = c4
-
-        %{
-          name: :user_lifetime_completed,
-          scheduled_time: 0,
-          result_code: :expired,
-          error_details: nil,
-          result_value: nil,
-          ex_revision: 5
-        } = c5
-
-        %{
-          name: :user_lifetime_completed,
-          scheduled_time: 0,
-          result_code: :computed,
-          error_details: nil,
-          ex_revision: 6
-        } = c6
-
-        execution
+        assert execution
+        {execution, user_id}
       end)
+
+    # Collect amd verify the results from every execution
+    executions_and_users
+    |> Enum.map(fn {execution, user_id} ->
+      # The remaining steps should promptly compute.
+      wait_for_result_to_compute(execution, :morning_update, 10_000, 1000)
+      wait_for_result_to_compute(execution, :evening_check_in, 10_000, 1000)
+
+      # The computation will eventually become expired.
+      wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :expired, false)
+
+      # The computation will eventually be retried, and become computed.
+      wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :computed, true)
+
+      execution = execution |> Journey.Execution.reload()
+      # There should be two computations for :user_lifetime_completed at this point.
+      assert execution
+             |> Journey.Execution.Queries.get_computations(:user_lifetime_completed)
+             |> Enum.count() == 2
+
+      assert execution.revision == 6, "execution #{execution.id} does not have the expected number of revisions"
+
+      assert execution.computations |> Enum.count() == 6
+
+      # Verify that computations look like what we expect.
+      [
+        c1,
+        c2,
+        c3,
+        c4,
+        c5,
+        c6
+      ] = execution.computations
+
+      # Keeping pattern matching for individual computations separate, so it's easier to investigate failures.
+      %{name: :started_at, result_code: :computed, scheduled_time: 0, error_details: nil, ex_revision: 1} = c1
+
+      %{
+        name: :user_id,
+        result_code: :computed,
+        scheduled_time: 0,
+        error_details: nil,
+        result_value: ^user_id,
+        ex_revision: 2
+      } = c2
+
+      %{name: _morning_or_evening_check, scheduled_time: 0, result_code: :computed, ex_revision: 3} = c3
+      %{name: _morning_or_evening_check, scheduled_time: 0, result_code: :computed, ex_revision: 4} = c4
+
+      %{
+        name: :user_lifetime_completed,
+        scheduled_time: 0,
+        result_code: :expired,
+        error_details: nil,
+        result_value: nil,
+        ex_revision: 5
+      } = c5
+
+      %{
+        name: :user_lifetime_completed,
+        scheduled_time: 0,
+        result_code: :computed,
+        error_details: nil,
+        ex_revision: 6
+      } = c6
+
+      execution
     end)
+
+    #    end)
   end
 
   @tag timeout: 600_000
   test "scheduled recurring tasks, recomputed", %{test_id: test_id} do
-    Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
-      user_id = "user_recurring_tasks_#{test_id}"
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    user_id = "user_recurring_tasks_#{test_id}"
 
-      Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
+    Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
-      # Start background sweep tasks. TODO: run this supervised / under OTP.
-      base_delay_for_background_tasks_seconds = 2
-      Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
+    # Start background sweep tasks. TODO: run this supervised / under OTP.
+    base_delay_for_background_tasks_seconds = 2
+    Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
 
-      # Start process execution.
-      execution =
-        Journey.Test.UserJourneyScheduledRecurring.itinerary()
-        |> Journey.Process.start()
+    # Start process execution.
+    execution =
+      Journey.Test.UserJourneyScheduledRecurring.itinerary()
+      |> Journey.Process.start()
 
-      # |> IO.inspect(label: "what is happening here")
+    assert execution
 
-      assert execution
+    # Set the value for the 1st step.
+    execution =
+      execution
+      |> Journey.Execution.set_value(:user_id, user_id)
 
-      # Set the value for the 1st step.
-      execution =
-        execution
-        |> Journey.Execution.set_value(:user_id, user_id)
+    assert execution
 
-      assert execution
+    # This function waits a bit, and then loads the execution and makes sure the execution looks as
+    # we would expect at that moment in time.
+    check_counts = fn _, {prev_computed_morning, prev_computed_evening} ->
+      :timer.sleep(Journey.Utilities.seconds_until_the_end_of_next_minute() * 1000)
 
-      check_counts = fn _, prev_computed ->
-        :timer.sleep(70_000)
-
+      for_one_task = fn task_id, prev_computed ->
         execution =
           execution
           |> Journey.Execution.reload()
 
         current_computed =
           execution
-          |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :computed)
+          |> Journey.Execution.Queries.get_sorted_computations_by_status(task_id, :computed)
 
+        # We should now have more computed steps than last time.
         assert Enum.count(prev_computed) < Enum.count(current_computed),
-               "unexpected number of computed tasks, execution: #{inspect(execution, pretty: true)}"
+               "unexpected number of computed tasks (#{Enum.count(current_computed)}), expecting more than #{Enum.count(prev_computed)}, execution: #{inspect(execution, pretty: true)}"
 
         current_scheduled =
           execution
-          |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :scheduled)
+          |> Journey.Execution.Queries.get_sorted_computations_by_status(task_id, :scheduled)
+
+        current_computing =
+          execution
+          |> Journey.Execution.Queries.get_sorted_computations_by_status(task_id, :computing)
+
+        # We should always have one computing or scheduled task.
 
         # There is a tiny window between before a new computation is scheduled, after one completes, so we might have a very rare false failure here.
-        assert Enum.count(current_scheduled) == 1,
+        assert Enum.count(current_scheduled) + Enum.count(current_computing) == 1,
                "unexpected number of scheduled tasks, execution: #{inspect(execution, pretty: true)}"
 
         current_computed
       end
 
-      Enum.reduce(1..3, [], check_counts)
-      # check_counts.([]) |> check_counts.() |> check_counts.()
-      # the scheduled steps should promptly compute.
-      # :timer.sleep(70_000)
+      current_computed_morning = for_one_task.(:morning_update, prev_computed_morning)
+      current_computed_evening = for_one_task.(:evening_check_in, prev_computed_evening)
+      {current_computed_morning, current_computed_evening}
+    end
 
-      # execution =
-      #   execution
-      #   |> Journey.Execution.reload()
-
-      # computed_morning_updates1 =
-      #   execution
-      #   |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :computed)
-      #   |> IO.inspect(label: "batch1: all completed morning_update's")
-
-      # assert Enum.count(computed_morning_updates1) >= 1
-
-      # scheduled_morning_updates1 =
-      #   execution
-      #   |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :scheduled)
-      #   |> IO.inspect(label: "batch1: all scheduled morning_update's")
-
-      # assert Enum.count(scheduled_morning_updates1) == 1
-
-      # :timer.sleep(70_000)
-
-      # execution =
-      #   execution
-      #   |> Journey.Execution.reload()
-
-      # computed_morning_updates =
-      #   execution
-      #   |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :computed)
-      #   |> IO.inspect(label: "batch2: all completed morning_update's")
-
-      # scheduld_morning_updates =
-      #   execution
-      #   |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :scheduled)
-      #   |> IO.inspect(label: "batch2: all scheduled morning_update's")
-
-      # :timer.sleep(70_000)
-
-      # execution =
-      #   execution
-      #   |> Journey.Execution.reload()
-
-      # computed_morning_updates =
-      #   execution
-      #   |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :computed)
-      #   |> IO.inspect(label: "batch3: all completed morning_update's")
-
-      # scheduld_morning_updates =
-      #   execution
-      #   |> Journey.Execution.Queries.get_sorted_computations_by_status(:morning_update, :scheduled)
-      #   |> IO.inspect(label: "batch3: all scheduled morning_update's")
-
-      # The remaining steps should promptly compute.
-      # wait_for_result_to_compute(execution, :morning_update, 2_000, 100, :scheduled)
-      # wait_for_result_to_compute(execution, :evening_check_in, 2_000, 100, :scheduled)
-
-      # The scheduled computations will eventually become computed.
-      # TODO: implemennt
-
-      # The final computation will eventually become computed.
-      # TODO: implemennt
-      # wait_for_result_to_compute(execution, :user_lifetime_completed, 30_000, 1_000, :computed, true)
-
-      # The schedulable steps will stop getting scheduled.
-      # TODO: implemennt
-
-      # Logger.info("waiting a while before exising test...")
-      # :timer.sleep(300_000)
-      # Logger.info("... test exising")
-    end)
+    # Check that the execution looks as we expect over a period of time.
+    Enum.reduce(1..3, {[], []}, check_counts)
+    # end)
   end
 
   @tag timeout: 200_000
-  test "just running background sweepers", %{test_id: test_id} do
+  test "just running background sweepers", %{test_id: _test_id} do
     # Start background sweep tasks. TODO: run this supervised / under OTP.
     Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
     base_delay_for_background_tasks_seconds = 2
     Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
 
-    Logger.info("waiting a while before exising test...")
-    :timer.sleep(90_000)
-    Logger.info("... test exising")
+    Logger.info("waiting before exising...")
+    :timer.sleep(40_000)
+    Logger.info("... exiting")
   end
 
   defp check_frequency(slow) do
@@ -388,8 +331,6 @@ defmodule Journey.Test.Lifetime do
          expected_status \\ :computed,
          most_recent \\ true
        ) do
-    Logger.info("why why why expected status #{expected_status}")
-
     case WaitForIt.wait(
            Journey.Execution.reload(execution)
            |> Journey.Execution.Queries.get_computation_status(step_name, most_recent) ==

@@ -14,12 +14,13 @@ defmodule Journey.Execution do
         ) :: atom | %{:computations => any, optional(any) => any}
 
   def set_value(execution, step, value) do
-    Logger.info("set_value[#{execution.id}][#{step}]: start")
+    prefix = "#{f_name()}[#{execution.id}][#{step}]"
+    Logger.info("#{prefix}: start")
 
     execution
     |> Journey.Execution.Store.set_value(step, value)
     |> Journey.Execution.Scheduler2.advance()
-    |> tap(fn _ -> Logger.info("set_value[#{execution.id}][#{step}]: done") end)
+    |> tap(fn _ -> Logger.info("#{prefix}: done") end)
   end
 
   def reload(execution) do

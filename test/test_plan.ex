@@ -116,8 +116,6 @@ defmodule Journey.Test.UserJourney do
 
     Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
 
-    Logger.info("#{function_name}: using ")
-
     if fail do
       {_a, _b} = "testing failure"
     end

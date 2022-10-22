@@ -86,8 +86,8 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
   end
 
   def user_lifetime_completed(execution) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
+    function_name = "[#{f_name()}][#{execution.id}}][#{user_id(execution)}]"
+    Logger.info("#{function_name}: starting.")
 
     # All of the upstream tasks must have been computed before this task starts computing.
     :computed = Journey.Execution.Queries.get_computation_status(execution, :user_id)
@@ -104,9 +104,7 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
         ", "
       )
 
-    Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
-
-    Logger.info("#{function_name}: using ")
+    Logger.debug("#{function_name}: computations so far: [#{computations_so_far}]")
 
     # TODO: receive task name as a function argument.
     my_first_execution =
@@ -126,7 +124,7 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
       computations_so_far
     ]
 
-    Logger.info("#{function_name}: all done")
+    Logger.debug("#{function_name}: all done")
     {:ok, run_result}
   end
 end

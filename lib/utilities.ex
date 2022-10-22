@@ -20,8 +20,29 @@ defmodule Journey.Utilities do
   end
 
   def function_name(f) do
-    [module: module, name: name, arity: arity, env: _, type: _] = Function.info(f)
+    {_, module} = Function.info(f, :module)
+    {_, name} = Function.info(f, :name)
+    {_, arity} = Function.info(f, :arity)
+
     "#{module}.#{name}/#{arity}"
+  end
+
+  defp round_down_to_minute(epoch_seconds) do
+    div(epoch_seconds, 60) * 60
+  end
+
+  def seconds_until_the_end_of_next_minute() do
+    now = Journey.Utilities.curent_unix_time_sec()
+
+    end_of_next_minute =
+      now
+      |> round_down_to_minute()
+      # Next minute.
+      |> Kernel.+(60)
+      # last second of the next minute.
+      |> Kernel.+(59)
+
+    end_of_next_minute - now
   end
 
   defmacro f_name() do

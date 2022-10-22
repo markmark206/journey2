@@ -269,7 +269,9 @@ defmodule Journey.Execution.Store do
       nil ->
         # The computation does not exist for some reason (e. g. the computation took too long, and has been marked as :expired).
         # Log and proceed. The result will simply be discarded.
-        Logger.warn("#{func_name}: an incomlete computation #{computation.id} does not seem to exist")
+        Logger.warn(
+          "#{func_name}: :computing computation #{computation.id} does not exist (it might have been marked as expired by a sweeper?)"
+        )
 
       # TODO: replace this with something along the lines of what we have in mark_abandoned_computations_as_expired, so this update happens as part of one query.
       reloaded_computation ->
@@ -369,20 +371,16 @@ defmodule Journey.Execution.Store do
   def load(execution_id, include_computations) when is_binary(execution_id) do
     Logger.debug("load[#{execution_id}][#{inspect(self())}]: reloading")
 
-    # Journey.Utilities.get_call_stack()
-    # |> IO.inspect()
-
-    computations_query =
-      Journey.Repo.get(Journey.Schema.Execution, execution_id)
-      |> then(fn execution ->
-        if include_computations do
-          execution
-          |> Journey.Repo.preload(:computations)
-          |> cleanup_computations()
-        else
-          execution
-        end
-      end)
+    Journey.Repo.get(Journey.Schema.Execution, execution_id)
+    |> then(fn execution ->
+      if include_computations do
+        execution
+        |> Journey.Repo.preload(:computations)
+        |> cleanup_computations()
+      else
+        execution
+      end
+    end)
   end
 
   def load(execution, include_computations) when is_map(execution) do
@@ -403,9 +401,8 @@ defmodule Journey.Execution.Store do
       |> Journey.Repo.update_all(set: [result_code: :expired])
 
     if count > 0 do
-      Logger.info(
-        "#{f_name()}: processed #{count} abandoned computations, marked: #{inspect(updated_items, pretty: true)}"
-      )
+      ids = updated_items |> Enum.take(70) |> Enum.map_join(", ", fn c -> c.name end)
+      Logger.warn("#{f_name()}: processed #{count} abandoned computations, including: #{ids}")
     else
       Logger.debug("#{f_name()}: processed #{count} abandoned computations")
     end

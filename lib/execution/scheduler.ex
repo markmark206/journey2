@@ -39,8 +39,6 @@ defmodule Journey.Execution.Scheduler2 do
         execution
 
       [runnable_process_step | _] ->
-        Logger.error("still handling immediate tasks -- try running those tasks")
-
         {:ok, _pid} =
           Task.start(fn ->
             try_running_one_immediate_process_step(execution, runnable_process_step)
@@ -114,6 +112,7 @@ defmodule Journey.Execution.Scheduler2 do
     # We only care about tasks that can be scheduled.
     |> Enum.filter(fn process_step -> process_step.func_next_execution_time_epoch_seconds != nil end)
     # We only care about tasks that are not already scheduled.
+    # credo:disable-for-next-line Credo.Check.Refactor.FilterFilter
     |> Enum.filter(fn process_step ->
       execution
       |> Journey.Execution.Queries.get_sorted_computations_by_status(process_step.name, :scheduled)
@@ -122,6 +121,7 @@ defmodule Journey.Execution.Scheduler2 do
       # |> dbg()
     end)
     # We only care about steps that don't have any unfulfilled upstream dependencies.
+    # credo:disable-for-next-line Credo.Check.Refactor.FilterFilter
     |> Enum.filter(fn process_step -> !has_outstanding_dependencies?(process_step, execution) end)
 
     # |> Enum.map(fn process_step -> process_step.name end)
@@ -159,6 +159,7 @@ defmodule Journey.Execution.Scheduler2 do
 
     execution.computations
     |> Enum.filter(fn c -> c.scheduled_time <= now end)
+    # credo:disable-for-next-line Credo.Check.Refactor.FilterFilter
     |> Enum.filter(fn c -> c.result_code == :scheduled end)
     |> Enum.map(fn c -> c.name end)
     |> MapSet.new()
@@ -282,6 +283,7 @@ defmodule Journey.Execution.Scheduler2 do
     one_time_computations =
       execution.computations
       |> Enum.filter(fn c -> c.scheduled_time == 0 end)
+      # credo:disable-for-next-line Credo.Check.Refactor.FilterFilter
       |> Enum.filter(fn c -> c.result_code in [:computing, :computed, :failed] end)
       |> Enum.map(fn c -> c.name end)
       |> MapSet.new()

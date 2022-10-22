@@ -69,12 +69,12 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
   end
 
   def send_evening_check_in(execution) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+    function_name = "#{f_name()}[#{user_id(execution)}]"
+    Logger.debug("#{function_name}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
-    Logger.info("#{function_name}: done.")
+    Logger.debug("#{function_name}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
       # Logger.info("#{function_name}: done, forever.")
@@ -91,13 +91,13 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
   end
 
   def send_morning_update(execution) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+    function_name = "#{f_name()}[#{user_id(execution)}]"
+    Logger.debug("#{function_name}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
 
-    Logger.info("#{function_name}: done.")
+    Logger.debug("#{function_name}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
       # Logger.info("#{function_name}: done, forever.")
@@ -118,8 +118,8 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
   end
 
   def user_lifetime_completed(execution) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
+    function_name = "#{f_name()}[#{user_id(execution)}]"
+    Logger.debug("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
 
     # All of the upstream tasks must have been computed before this task starts computing.
     :computed = Journey.Execution.Queries.get_computation_status(execution, :user_id)
@@ -136,9 +136,9 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
         ", "
       )
 
-    Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
+    Logger.debug("#{function_name}: computations so far: [#{computations_so_far}]")
 
-    Logger.info("#{function_name}: using ")
+    Logger.debug("#{function_name}: using ")
 
     # TODO: receive task name as a function argument.
     # my_first_execution =
