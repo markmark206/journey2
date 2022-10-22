@@ -367,19 +367,22 @@ defmodule Journey.Execution.Store do
   def load(execution, include_computations \\ true)
 
   def load(execution_id, include_computations) when is_binary(execution_id) do
-    Logger.info("load[#{execution_id}]: reloading")
+    Logger.debug("load[#{execution_id}][#{inspect(self())}]: reloading")
+
+    # Journey.Utilities.get_call_stack()
+    # |> IO.inspect()
 
     computations_query =
-    Journey.Repo.get(Journey.Schema.Execution, execution_id)
-    |> then(fn execution ->
-      if include_computations do
-        execution
-        |> Journey.Repo.preload(:computations)
-        |> cleanup_computations()
-      else
-        execution
-      end
-    end)
+      Journey.Repo.get(Journey.Schema.Execution, execution_id)
+      |> then(fn execution ->
+        if include_computations do
+          execution
+          |> Journey.Repo.preload(:computations)
+          |> cleanup_computations()
+        else
+          execution
+        end
+      end)
   end
 
   def load(execution, include_computations) when is_map(execution) do
@@ -404,7 +407,7 @@ defmodule Journey.Execution.Store do
         "#{f_name()}: processed #{count} abandoned computations, marked: #{inspect(updated_items, pretty: true)}"
       )
     else
-      Logger.info("#{f_name()}: processed #{count} abandoned computations")
+      Logger.debug("#{f_name()}: processed #{count} abandoned computations")
     end
 
     updated_items

@@ -41,7 +41,7 @@ defmodule Journey.Process do
 
   @spec kick_off_background_tasks(number) :: :ok
   def kick_off_background_tasks(min_delay_seconds \\ @two_minutes_in_seconds) do
-    Logger.info("#{f_name()}: kicking off background tasks")
+    Logger.info("#{f_name()}: kicking off background tasks. base delay: #{min_delay_seconds} seconds")
     {:ok, _} = Journey.Execution.Daemons.start(min_delay_seconds)
     Logger.info("#{f_name()}: background tasks started")
   end

@@ -10,6 +10,20 @@ defmodule Journey.Utilities do
     prefix <> Nanoid.generate(length, @dictionary)
   end
 
+  def get_call_stack() do
+    Process.info(self(), :current_stacktrace)
+    |> elem(1)
+    |> Enum.map(fn {module, func, arity, [file: file_name, line: linenum]} ->
+      "#{module}.#{func}/#{arity} (#{file_name}:#{linenum}"
+    end)
+    |> then(fn [_ | [_ | rest]] -> rest end)
+  end
+
+  def function_name(f) do
+    [module: module, name: name, arity: arity, env: _, type: _] = Function.info(f)
+    "#{module}.#{name}/#{arity}"
+  end
+
   defmacro f_name() do
     elem(__CALLER__.function, 0)
   end

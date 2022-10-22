@@ -15,3 +15,10 @@ config :journey, Journey.Repo,
 
 config :journey,
   ecto_repos: [Journey.Repo]
+
+config :logger,
+       :console,
+       level: :info
+
+# format: "TEST $date $time [$level] $metadata $message\n",
+# metadata: [:module, :function]

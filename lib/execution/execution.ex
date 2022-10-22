@@ -14,10 +14,12 @@ defmodule Journey.Execution do
         ) :: atom | %{:computations => any, optional(any) => any}
 
   def set_value(execution, step, value) do
+    Logger.info("set_value[#{execution.id}][#{step}]: start")
+
     execution
     |> Journey.Execution.Store.set_value(step, value)
-    # |> Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any()
     |> Journey.Execution.Scheduler2.advance()
+    |> tap(fn _ -> Logger.info("set_value[#{execution.id}][#{step}]: done") end)
   end
 
   def reload(execution) do

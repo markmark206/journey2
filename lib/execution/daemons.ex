@@ -28,7 +28,7 @@ defmodule Journey.Execution.Daemons do
   @spec sweep_and_revisit_expired_computations :: :ok
   defp sweep_and_revisit_expired_computations() do
     # Sweep expired computations, and kick off processing for corresponding executions.
-    Logger.info("#{f_name()}: enter")
+    Logger.debug("#{f_name()}: enter")
 
     # Journey.Execution.Store.find_scheduled_computations_same_scheduled_time() do
     case [] do
@@ -49,7 +49,7 @@ defmodule Journey.Execution.Daemons do
     # |> Enum.each(&Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any/1)
     |> Enum.each(&Journey.Execution.Scheduler2.advance/1)
 
-    Logger.info("#{f_name()}: exit")
+    Logger.debug("#{f_name()}: exit")
   end
 
   @spec delay_and_sweep(number) :: no_return
@@ -57,7 +57,7 @@ defmodule Journey.Execution.Daemons do
     # Every once in a while (between min_delay_seconds and 2 * min_delay_seconds),
     # detect and "sweep" abandoned tasks.
 
-    Logger.info("delay_and_sweep: starting run (base delay: #{min_delay_in_seconds} seconds)")
+    Logger.debug("delay_and_sweep: starting run (base delay: #{min_delay_in_seconds} seconds)")
 
     to_random_ms = fn base_sec ->
       ((base_sec + base_sec * :rand.uniform()) * 1000) |> round()
@@ -68,7 +68,7 @@ defmodule Journey.Execution.Daemons do
     |> :timer.sleep()
 
     sweep_and_revisit_expired_computations()
-    Logger.info("delay_and_sweep: ending run")
+    Logger.debug("delay_and_sweep: ending run")
     delay_and_sweep(min_delay_in_seconds)
   end
 
@@ -78,6 +78,9 @@ defmodule Journey.Execution.Daemons do
     {:ok, _pid} =
       Task.start(fn ->
         Journey.Execution.Daemons.delay_and_sweep(min_delay_seconds)
+      end)
+      |> tap(fn {:ok, pid} ->
+        Logger.info("background sweeping process started. #{inspect(pid)}")
       end)
   end
 end
