@@ -5,17 +5,19 @@ defmodule Journey.Execution.Daemons do
   @spec collect_abandoned_computations :: list(String.t())
   defp collect_abandoned_computations() do
     # TODO: what do we want to do with abandoned scheduled tasks? (run them now, or wait until next scheduled time?)
-    Journey.Execution.Store.mark_abandoned_computations_as_expired()
+    now = Journey.Utilities.curent_unix_time_sec()
+
+    now
+    |> Journey.Execution.Store.mark_abandoned_computations_as_expired()
     |> Enum.map(fn expired_computation ->
       prefix = "#{f_name()}[#{expired_computation.execution_id}][#{expired_computation.id}]"
 
       Logger.warn(
-        "#{prefix}: processing expired computation. status: #{expired_computation.result_code}, deadline: #{expired_computation.deadline}"
+        "#{prefix}: processing expired computation. status: #{expired_computation.result_code}, deadline: #{expired_computation.deadline} (now: #{now}, passed by #{now - expired_computation.deadline} seconds)"
       )
 
       expired_computation
     end)
-    # TODO: have mark_abandoned_computations_as_expired return execution ids
     |> Enum.map(fn expired_computation -> expired_computation.execution_id end)
   end
 

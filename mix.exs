@@ -56,6 +56,7 @@ defmodule Journey.MixProject do
       {:jason, "~> 1.4"},
       {:nanoid, "~> 2.0.5"},
       {:postgrex, ">= 0.0.0"},
+      {:timex, "~> 3.7"},
       {:wait_for_it, "~> 1.3.0", only: [:test], runtime: false}
     ]
   end

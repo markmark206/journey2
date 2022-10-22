@@ -11,21 +11,21 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: &Journey.Test.UserJourneyAbandonedSweeps.send_morning_update/1,
+          func: &Journey.Test.UserJourneyAbandonedSweeps.send_morning_update_one_time/2,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: &Journey.Test.UserJourneyAbandonedSweeps.send_evening_check_in/1,
+          func: &Journey.Test.UserJourneyAbandonedSweeps.send_evening_check_in_one_time/2,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :user_lifetime_completed,
-          func: &Journey.Test.UserJourneyAbandonedSweeps.user_lifetime_completed/1,
+          func: &Journey.Test.UserJourneyAbandonedSweeps.user_lifetime_completed/2,
           expires_after_seconds: @abandoned_task_expires_after_seconds,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},
@@ -36,13 +36,13 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
     }
   end
 
-  def send_evening_check_in(execution) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+  def send_evening_check_in_one_time(execution, computation_id) do
+    prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
-    Logger.info("#{function_name}: done.")
+    Logger.info("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
       # Logger.info("#{function_name}: done, forever.")
@@ -58,14 +58,14 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
     end
   end
 
-  def send_morning_update(execution) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+  def send_morning_update_one_time(execution, computation_id) do
+    prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
 
-    Logger.info("#{function_name}: done.")
+    Logger.info("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
       # Logger.info("#{function_name}: done, forever.")
@@ -85,9 +85,9 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
     Journey.Execution.Queries.get_computation_value(execution, :user_id)
   end
 
-  def user_lifetime_completed(execution) do
-    function_name = "[#{f_name()}][#{execution.id}}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting.")
+  def user_lifetime_completed(execution, computation_id) do
+    prefix = "[#{f_name()}][#{execution.id}}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting.")
 
     # All of the upstream tasks must have been computed before this task starts computing.
     :computed = Journey.Execution.Queries.get_computation_status(execution, :user_id)
@@ -104,7 +104,7 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
         ", "
       )
 
-    Logger.debug("#{function_name}: computations so far: [#{computations_so_far}]")
+    Logger.debug("#{prefix}: computations so far: [#{computations_so_far}]")
 
     # TODO: receive task name as a function argument.
     my_first_execution =
@@ -112,6 +112,7 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
 
     if my_first_execution do
       # Sleep long enough for the task to be considered abandoned.
+      Logger.info("#{prefix}: take so long, the task looks abandoned")
       sleep_time_ms = (2 * @abandoned_task_expires_after_seconds + 5) * 1000
       :timer.sleep(sleep_time_ms)
     else
@@ -124,7 +125,7 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
       computations_so_far
     ]
 
-    Logger.debug("#{function_name}: all done")
+    Logger.info("#{prefix}: all done")
     {:ok, run_result}
   end
 end

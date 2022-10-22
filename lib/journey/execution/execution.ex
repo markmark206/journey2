@@ -28,7 +28,36 @@ defmodule Journey.Execution do
     execution |> Journey.Execution.Store.load()
   end
 
+  defp computation_summary(computation) do
+    conditional_timestamp = fn epoch_seconds ->
+      if epoch_seconds do
+        "#{Journey.Utilities.epoch_to_timestamp(epoch_seconds)} (#{epoch_seconds})"
+      else
+        "none"
+      end
+    end
+
+    """
+    Computation #{computation.ex_revision}: '#{computation.id}' / '#{computation.name}:'
+      Result: '#{computation.result_code}'
+      Started at: #{conditional_timestamp.(computation.start_time)}
+      Ended at: #{conditional_timestamp.(computation.end_time)}
+      Deadline: #{conditional_timestamp.(computation.deadline)}).
+      Scheduled for: #{conditional_timestamp.(computation.scheduled_time)}"
+    """
+  end
+
+  defp computations_summary(computations) do
+    computations
+    |> Enum.map(&computation_summary/1)
+  end
+
   def get_summary(execution) do
-    "execution summary. TODO: implement '#{execution.id}'"
+    """
+    Execution Summary
+
+    id: #{execution.id}
+    computations:\n#{execution.computations |> computations_summary() |> Enum.map(fn c -> "* #{c}" end) |> Enum.join("\n")}
+    """
   end
 end

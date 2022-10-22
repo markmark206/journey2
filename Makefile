@@ -9,10 +9,10 @@
 
 
 build:
-	mix compile --force
+	time mix compile --force
 
 dialyzer:
-	 mix dialyzer
+	 time mix dialyzer
 
 format:
 	mix format
@@ -21,11 +21,11 @@ install-dependencies:
 	mix deps.get
 
 lint:
-	mix compile
+	time mix compile
 	mix format --check-formatted
 	mix credo --all
 
 pre-commit: build lint dialyzer test
 
 test:
-	mix test --cover
+	time mix test --cover

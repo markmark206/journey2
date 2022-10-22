@@ -6,6 +6,8 @@ defmodule Journey.Test.Lifetime do
 
   require WaitForIt
 
+  @base_delay_for_background_tasks_seconds 2
+
   setup do
     {:ok, %{test_id: Journey.Utilities.object_id("tid")}}
   end
@@ -99,24 +101,26 @@ defmodule Journey.Test.Lifetime do
                    Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
                  ]
         end
+
+        execution =
+          execution
+          |> Journey.Execution.reload()
+
+        execution_summary = Journey.Execution.get_summary(execution)
+        Logger.info("test execution summary:\n#{execution_summary}")
       end
     end
 
     # end)
   end
 
-  @tag timeout: 200_000
-  test "expired computation, recomputed", %{test_id: test_id} do
+  @tag timeout: 600_000
+  test "abandoned / expired computation, recomputed, many of them", %{test_id: test_id} do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
-    # TODO: implement
-    # excercise process.start() and have a plan that takes too long to process things.
-    # what to do with execution that now have multiple computations for the same task.
-
     Journey.Process.register_itinerary(Journey.Test.UserJourneyAbandonedSweeps.itinerary())
 
     # Start background sweep tasks. TODO: run this supervised / under OTP.
-    base_delay_for_background_tasks_seconds = 2
-    Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
+    Journey.Process.kick_off_background_tasks(@base_delay_for_background_tasks_seconds)
 
     user_ids =
       for sequence <- 1..100 do
@@ -208,6 +212,10 @@ defmodule Journey.Test.Lifetime do
         ex_revision: 6
       } = c6
 
+      Logger.info(
+        "test: verified that execution #{execution.id} ends up with the expected number of completed computations."
+      )
+
       execution
     end)
 
@@ -222,8 +230,7 @@ defmodule Journey.Test.Lifetime do
     Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
     # Start background sweep tasks. TODO: run this supervised / under OTP.
-    base_delay_for_background_tasks_seconds = 2
-    Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
+    Journey.Process.kick_off_background_tasks(@base_delay_for_background_tasks_seconds)
 
     # Start process execution.
     execution =
@@ -289,8 +296,7 @@ defmodule Journey.Test.Lifetime do
     # Start background sweep tasks. TODO: run this supervised / under OTP.
     Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
-    base_delay_for_background_tasks_seconds = 2
-    Journey.Process.kick_off_background_tasks(base_delay_for_background_tasks_seconds)
+    Journey.Process.kick_off_background_tasks(@base_delay_for_background_tasks_seconds)
 
     Logger.info("waiting before exising...")
     :timer.sleep(40_000)

@@ -393,9 +393,8 @@ defmodule Journey.Execution.Store do
     load(execution.id, include_computations)
   end
 
-  def mark_abandoned_computations_as_expired() do
+  def mark_abandoned_computations_as_expired(now) do
     # Find old abandoned computations, mark them as expired, and return them.
-    now = Journey.Utilities.curent_unix_time_sec()
 
     {count, updated_items} =
       from(

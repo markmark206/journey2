@@ -210,8 +210,10 @@ defmodule Journey.Execution.Scheduler2 do
             "#{func_name}[#{computation_object.id}][#{computation_object.ex_revision}]: calling step function, #{function_name(process_step.func)}"
           )
 
+          # Append the computation to the list of computations in the execution before passing it to the function, so that the function can introspect the properties of its own computation if it needs to.
+          execution = %{execution | computations: execution.computations ++ [computation_object]}
           # TODO: handle {:error, ...}
-          {:ok, result} = process_step.func.(execution)
+          {:ok, result} = process_step.func.(execution, computation_object.id)
 
           Logger.info(
             "#{func_name}[#{computation_object.id}][#{computation_object.ex_revision}]: step function completed"
@@ -341,8 +343,12 @@ defmodule Journey.Execution.Scheduler2 do
             "#{func_name}[#{computation_object.id}]: calling step function, #{function_name(process_step.func)}"
           )
 
+          # Append the computation to the list of computations in the execution before passing it to the function, so that the function can introspect the properties of its own computation if it needs to.
+          execution = %{execution | computations: execution.computations ++ [computation_object]}
+
           # TODO: handle {:error, ...}
-          {:ok, result} = process_step.func.(execution)
+          execution = %{execution | computations: execution.computations ++ [computation_object]}
+          {:ok, result} = process_step.func.(execution, computation_object.id)
           Logger.info("#{func_name}[#{computation_object.id}]: step function completed")
 
           Journey.Execution.Store.complete_computation_and_record_result(
