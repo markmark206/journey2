@@ -1,34 +1,29 @@
 defmodule Journey.Test.UserJourney do
   require Logger
+  import Journey.Utilities, only: [f_name: 0]
 
-  def slow?(), do: false
-  # def slow?(), do: false
-
-  def fail?(), do: true
-  # def fail?(), do: false
-
-  def itinerary() do
+  def itinerary(slow \\ false, fail \\ true) do
     %Journey.Process{
-      process_id: "user journey",
+      process_id: "#{__MODULE__}_slow_#{slow}_fail_#{fail}",
       steps: [
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: &Journey.Test.UserJourney.send_morning_update/1,
+          func: fn execution -> Journey.Test.UserJourney.send_morning_update(execution, slow, fail) end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: &Journey.Test.UserJourney.send_evening_check_in/1,
+          func: fn execution -> Journey.Test.UserJourney.send_evening_check_in(execution, slow, fail) end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :user_lifetime_completed,
-          func: &Journey.Test.UserJourney.user_lifetime_completed/1,
+          func: fn execution -> Journey.Test.UserJourney.user_lifetime_completed(execution, slow, fail) end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},
             %Journey.Process.BlockedBy{step_name: :morning_update, condition: :provided}
@@ -38,16 +33,17 @@ defmodule Journey.Test.UserJourney do
     }
   end
 
-  def send_evening_check_in(execution) do
-    function_name = "send_evening_check_in[#{user_id(execution)}]"
+  def send_evening_check_in(execution, slow, _fail) do
+    function_name = "[#{f_name()}][#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
-    if slow?() do
+    if slow do
       :timer.sleep(2000)
     end
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "evening check in completed for user #{user_id(execution)}"
+    run_result = "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}"
+
     Logger.info("#{function_name}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
@@ -64,16 +60,16 @@ defmodule Journey.Test.UserJourney do
     end
   end
 
-  def send_morning_update(execution) do
-    function_name = "send_morning_update[#{user_id(execution)}]"
+  def send_morning_update(execution, slow, _fail) do
+    function_name = "[#{f_name()}][#{user_id(execution)}]"
     Logger.info("#{function_name}: starting")
 
-    if slow?() do
+    if slow do
       :timer.sleep(3000)
     end
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "morning update completed for user #{user_id(execution)}"
+    run_result = "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}"
 
     Logger.info("#{function_name}: done.")
 
@@ -95,11 +91,11 @@ defmodule Journey.Test.UserJourney do
     Journey.Execution.Queries.get_computation_value(execution, :user_id)
   end
 
-  def user_lifetime_completed(execution) do
-    function_name = "user_lifetime_completed[#{user_id(execution)}]"
+  def user_lifetime_completed(execution, slow, fail) do
+    function_name = "[#{f_name()}][#{user_id(execution)}]"
     Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
 
-    if slow?() do
+    if slow do
       :timer.sleep(2000)
     end
 
@@ -120,14 +116,12 @@ defmodule Journey.Test.UserJourney do
 
     Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
 
-    Logger.info("#{function_name}: using ")
-
-    if fail?() do
-      {_a, _b} = 3
+    if fail do
+      {_a, _b} = "testing failure"
     end
 
     run_result = [
-      "user lifetime completed for user #{user_id(execution)}",
+      "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}",
       computations_so_far
     ]
 
