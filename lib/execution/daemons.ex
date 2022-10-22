@@ -35,8 +35,8 @@ defmodule Journey.Execution.Daemons do
     # Sweep expired computations, and kick off processing for corresponding executions.
     Logger.debug("#{f_name()}: enter")
 
-    # Journey.Execution.Store.find_scheduled_computations_same_scheduled_time() do
-    case [] do
+    Journey.Execution.Store.find_scheduled_computations_same_scheduled_time()
+    |> case do
       [] ->
         nil
 
