@@ -369,18 +369,24 @@ defmodule Journey.Execution.Store do
   def load(execution, include_computations \\ true)
 
   def load(execution_id, include_computations) when is_binary(execution_id) do
-    Logger.debug("load[#{execution_id}][#{inspect(self())}]: reloading")
+    prefix = "#{f_name()}[#{execution_id}][#{inspect(self())}]"
+    Logger.debug("#{prefix}: reloading")
 
     Journey.Repo.get(Journey.Schema.Execution, execution_id)
-    |> then(fn execution ->
-      if include_computations do
-        execution
-        |> Journey.Repo.preload(:computations)
-        |> cleanup_computations()
-      else
-        execution
-      end
-    end)
+    |> case do
+      nil ->
+        Logger.error("#{prefix}: unable to find execution id [#{execution_id}] in the db")
+        nil
+
+      execution ->
+        if include_computations do
+          execution
+          |> Journey.Repo.preload(:computations)
+          |> cleanup_computations()
+        else
+          execution
+        end
+    end
   end
 
   def load(execution, include_computations) when is_map(execution) do
