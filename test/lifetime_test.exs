@@ -108,6 +108,7 @@ defmodule Journey.Test.Lifetime do
     # end)
   end
 
+  @tag :skip
   @tag timeout: 600_000
   test "execute a basic process", %{test_id: test_id} do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
@@ -117,6 +118,34 @@ defmodule Journey.Test.Lifetime do
       end
     end
 
+    # end)
+  end
+
+  @tag timeout: 600_000
+  test "execute a basic process (slow, force failure)", %{test_id: test_id} do
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    testing_basic_process(test_id, true, true)
+    # end)
+  end
+
+  @tag timeout: 600_000
+  test "execute a basic process (fast, force failure)", %{test_id: test_id} do
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    testing_basic_process(test_id, false, true)
+    # end)
+  end
+
+  @tag timeout: 600_000
+  test "execute a basic process (slow, success)", %{test_id: test_id} do
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    testing_basic_process(test_id, true, false)
+    # end)
+  end
+
+  @tag timeout: 600_000
+  test "execute a basic process (fast, success)", %{test_id: test_id} do
+    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
+    testing_basic_process(test_id, false, false)
     # end)
   end
 
