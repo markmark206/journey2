@@ -10,6 +10,15 @@ defmodule Journey.Utilities do
     prefix <> Nanoid.generate(length, @dictionary)
   end
 
+  def epoch_to_timestamp(epoch_seconds, tz_name \\ "America/Los_Angeles") do
+    timezone = Timex.Timezone.get(tz_name, Timex.now())
+
+    epoch_seconds
+    |> DateTime.from_unix!()
+    |> Timex.Timezone.convert(timezone)
+    |> Timex.format!("{YYYY}/{M}/{D} {h12}:{m}:{s}{am}")
+  end
+
   def get_call_stack() do
     Process.info(self(), :current_stacktrace)
     |> elem(1)

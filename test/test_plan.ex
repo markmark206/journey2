@@ -9,21 +9,27 @@ defmodule Journey.Test.UserJourney do
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: fn execution -> Journey.Test.UserJourney.send_morning_update(execution, slow, fail) end,
+          func: fn execution, computation_id ->
+            Journey.Test.UserJourney.send_morning_update(execution, computation_id, slow, fail)
+          end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: fn execution -> Journey.Test.UserJourney.send_evening_check_in(execution, slow, fail) end,
+          func: fn execution, computation_id ->
+            Journey.Test.UserJourney.send_evening_check_in(execution, computation_id, slow, fail)
+          end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :user_lifetime_completed,
-          func: fn execution -> Journey.Test.UserJourney.user_lifetime_completed(execution, slow, fail) end,
+          func: fn execution, computation_id ->
+            Journey.Test.UserJourney.user_lifetime_completed(execution, computation_id, slow, fail)
+          end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},
             %Journey.Process.BlockedBy{step_name: :morning_update, condition: :provided}
@@ -33,9 +39,9 @@ defmodule Journey.Test.UserJourney do
     }
   end
 
-  def send_evening_check_in(execution, slow, _fail) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+  def send_evening_check_in(execution, computation_id, slow, _fail) do
+    prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting")
 
     if slow do
       :timer.sleep(2000)
@@ -44,14 +50,14 @@ defmodule Journey.Test.UserJourney do
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}"
 
-    Logger.info("#{function_name}: done.")
+    Logger.info("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      # Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{prefix}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      # Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{prefix}: done, let's do this again.")
       # Run again in five minutes.
       # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
@@ -60,9 +66,9 @@ defmodule Journey.Test.UserJourney do
     end
   end
 
-  def send_morning_update(execution, slow, _fail) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting")
+  def send_morning_update(execution, computation_id, slow, _fail) do
+    prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting")
 
     if slow do
       :timer.sleep(3000)
@@ -71,14 +77,14 @@ defmodule Journey.Test.UserJourney do
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}"
 
-    Logger.info("#{function_name}: done.")
+    Logger.info("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      # Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{prefix}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      # Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{prefix}: done, let's do this again.")
       # Run again in five minutes.
       # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
@@ -91,9 +97,9 @@ defmodule Journey.Test.UserJourney do
     Journey.Execution.Queries.get_computation_value(execution, :user_id)
   end
 
-  def user_lifetime_completed(execution, slow, fail) do
-    function_name = "[#{f_name()}][#{user_id(execution)}]"
-    Logger.info("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
+  def user_lifetime_completed(execution, computation_id, slow, fail) do
+    prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting. execution: #{inspect(execution, pretty: true)}")
 
     if slow do
       :timer.sleep(2000)
@@ -114,7 +120,7 @@ defmodule Journey.Test.UserJourney do
         ", "
       )
 
-    Logger.info("#{function_name}: computations so far: [#{computations_so_far}]")
+    Logger.info("#{prefix}: computations so far: [#{computations_so_far}]")
 
     if fail do
       {_a, _b} = "testing failure"
@@ -125,7 +131,7 @@ defmodule Journey.Test.UserJourney do
       computations_so_far
     ]
 
-    Logger.info("#{function_name}: all done")
+    Logger.info("#{prefix}: all done")
     {:ok, run_result}
   end
 end

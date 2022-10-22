@@ -12,7 +12,7 @@ build:
 	mix compile --force
 
 dialyzer:
-	 mix dialyzer
+	mix dialyzer
 
 format:
 	mix format

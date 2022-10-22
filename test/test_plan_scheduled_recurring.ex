@@ -11,7 +11,7 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: &Journey.Test.UserJourneyScheduledRecurring.send_morning_update/1,
+          func: &Journey.Test.UserJourneyScheduledRecurring.send_morning_update/2,
           func_next_execution_time_epoch_seconds: &Journey.Test.UserJourneyScheduledRecurring.tomorrow_morning/1,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
@@ -19,7 +19,7 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: &Journey.Test.UserJourneyScheduledRecurring.send_evening_check_in/1,
+          func: &Journey.Test.UserJourneyScheduledRecurring.send_evening_check_in/2,
           func_next_execution_time_epoch_seconds: &Journey.Test.UserJourneyScheduledRecurring.tomorrow_evening/1,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
@@ -68,20 +68,20 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
     |> Kernel.+(30)
   end
 
-  def send_evening_check_in(execution) do
-    function_name = "#{f_name()}[#{user_id(execution)}]"
-    Logger.debug("#{function_name}: starting")
+  def send_evening_check_in(execution, computation_id) do
+    prefix = "#{f_name()}[#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.debug("#{prefix}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
-    Logger.debug("#{function_name}: done.")
+    Logger.debug("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      # Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{prefix}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      # Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{prefix}: done, let's do this again.")
       # Run again in five minutes.
       # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
@@ -90,21 +90,21 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
     end
   end
 
-  def send_morning_update(execution) do
-    function_name = "#{f_name()}[#{user_id(execution)}]"
-    Logger.debug("#{function_name}: starting")
+  def send_morning_update(execution, computation_id) do
+    prefix = "#{f_name()}[#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.debug("#{prefix}: starting")
 
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
     run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
 
-    Logger.debug("#{function_name}: done.")
+    Logger.debug("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      # Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{prefix}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      # Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{prefix}: done, let's do this again.")
       # Run again in five minutes.
       # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
@@ -117,9 +117,9 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
     Journey.Execution.Queries.get_computation_value(execution, :user_id)
   end
 
-  def user_lifetime_completed(execution) do
-    function_name = "#{f_name()}[#{user_id(execution)}]"
-    Logger.debug("#{function_name}: starting. execution: #{inspect(execution, pretty: true)}")
+  def user_lifetime_completed(execution, computation_id) do
+    prefix = "#{f_name()}[#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.debug("#{prefix}: starting. execution: #{inspect(execution, pretty: true)}")
 
     # All of the upstream tasks must have been computed before this task starts computing.
     :computed = Journey.Execution.Queries.get_computation_status(execution, :user_id)
@@ -136,9 +136,7 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
         ", "
       )
 
-    Logger.debug("#{function_name}: computations so far: [#{computations_so_far}]")
-
-    Logger.debug("#{function_name}: using ")
+    Logger.debug("#{prefix}: computations so far: [#{computations_so_far}]")
 
     # TODO: receive task name as a function argument.
     # my_first_execution =
@@ -158,7 +156,7 @@ defmodule Journey.Test.UserJourneyScheduledRecurring do
       computations_so_far
     ]
 
-    Logger.info("#{function_name}: all done")
+    Logger.info("#{prefix}: all done")
     {:ok, run_result}
   end
 end
