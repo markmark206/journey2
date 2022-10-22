@@ -30,10 +30,10 @@ defmodule Journey.Execution do
 
   defp computation_summary(computation) do
     conditional_timestamp = fn epoch_seconds ->
-      if epoch_seconds do
+      if epoch_seconds != nil and epoch_seconds > 0 do
         "#{Journey.Utilities.epoch_to_timestamp(epoch_seconds)} (#{epoch_seconds})"
       else
-        "none"
+        0
       end
     end
 
@@ -43,7 +43,7 @@ defmodule Journey.Execution do
       Started at: #{conditional_timestamp.(computation.start_time)}
       Ended at: #{conditional_timestamp.(computation.end_time)}
       Deadline: #{conditional_timestamp.(computation.deadline)}).
-      Scheduled for: #{conditional_timestamp.(computation.scheduled_time)}"
+      Scheduled for: #{conditional_timestamp.(computation.scheduled_time)}
     """
   end
 
@@ -54,8 +54,7 @@ defmodule Journey.Execution do
 
   def get_summary(execution) do
     """
-    Execution Summary
-
+    ** Execution Summary **
     id: #{execution.id}
     computations:\n#{execution.computations |> computations_summary() |> Enum.map_join("\n", fn c -> "* #{c}" end)}
     """
