@@ -57,7 +57,7 @@ defmodule Journey.Execution do
     Execution Summary
 
     id: #{execution.id}
-    computations:\n#{execution.computations |> computations_summary() |> Enum.map(fn c -> "* #{c}" end) |> Enum.join("\n")}
+    computations:\n#{execution.computations |> computations_summary() |> Enum.map_join("\n", fn c -> "* #{c}" end)}
     """
   end
 end
