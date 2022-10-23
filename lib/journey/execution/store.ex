@@ -312,7 +312,7 @@ defmodule Journey.Execution.Store do
     |> case do
       nil ->
         # The computation does not exist for some reason. Log and proceed. The result will simply be discarded.
-        Logger.warn("#{func_name}: an incomlete computation does not seem to exist")
+        Logger.warn("#{func_name}: an incomplete computation does not seem to exist")
 
       reloaded_computation ->
         # TODO: replace this with something along the lines of what we have in mark_abandoned_computations_as_expired, so this update happens as part of one query.

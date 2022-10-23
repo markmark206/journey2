@@ -11,7 +11,7 @@ defmodule Journey.Execution.Scheduler2 do
   def advance(execution) when is_map(execution) do
     # Schedule all the tasks that need to be scheduled.
 
-    prefix = "#{f_name()}[#{execution.id}][#{inspect(self())}]"
+    prefix = "#{f_name()}[#{execution.id}]"
 
     Logger.info("#{prefix}: starting")
 
@@ -100,7 +100,7 @@ defmodule Journey.Execution.Scheduler2 do
   end
 
   defp get_schedulable_process_steps(execution) do
-    func_name = "#{f_name()}[#{execution.id}][#{inspect(self())}]"
+    func_name = "#{f_name()}[#{execution.id}]"
     Logger.info("#{func_name}: enter")
 
     # Journey.Utilities.get_call_stack()
@@ -129,7 +129,7 @@ defmodule Journey.Execution.Scheduler2 do
 
   defp try_scheduling_process_tasks(process_step, execution) do
     # def async_computation_processing(execution, process_step) do
-    func_name = "#{f_name()}[#{execution.id}.#{process_step.name}]"
+    func_name = "#{f_name()}[#{execution.id}][#{process_step.name}]"
     Logger.debug("#{func_name}: starting")
 
     # TODO: handle scheduled computations that missed their scheduled time by a lot.
@@ -327,7 +327,7 @@ defmodule Journey.Execution.Scheduler2 do
   end
 
   defp try_running_one_immediate_process_step(execution, process_step) do
-    func_name = "#{f_name()}[#{execution.id}.#{process_step.name}]"
+    func_name = "#{f_name()}[#{execution.id}][#{process_step.name}]"
     Logger.info("#{func_name}: starting")
 
     Journey.Execution.Store.create_new_computation_record_if_one_doesnt_exist_lock(
