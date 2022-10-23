@@ -26,7 +26,7 @@ defmodule Journey.Test.Utilities do
   end
 
   def test_callstack() do
-    assert Journey.Utilities.get_call_stack() |> IO.inspect()
+    assert Journey.Utilities.get_call_stack()
   end
 
   test "callstack" do
