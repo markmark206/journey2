@@ -24,4 +24,12 @@ defmodule Journey.Test.Utilities do
     test_function_private()
     assert f_name() == :"test f_name"
   end
+
+  def test_callstack() do
+    assert Journey.Utilities.get_call_stack() |> IO.inspect()
+  end
+
+  test "callstack" do
+    test_callstack()
+  end
 end

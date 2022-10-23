@@ -18,7 +18,6 @@ config :journey,
 
 config :logger,
        :console,
-       level: :info
-
-# format: "TEST $date $time [$level] $metadata $message\n",
-# metadata: [:module, :function]
+       format: "$time [$level] $metadata$message\n",
+       level: :info,
+       metadata: []

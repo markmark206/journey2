@@ -42,7 +42,7 @@ defmodule Journey.Execution do
       Result: '#{computation.result_code}'
       Started at: #{conditional_timestamp(computation.start_time)}
       Ended at: #{conditional_timestamp(computation.end_time)}
-      Deadline: #{conditional_timestamp(computation.deadline)}).
+      Deadline: #{conditional_timestamp(computation.deadline)}
       Scheduled for: #{conditional_timestamp(computation.scheduled_time)}
     """
   end

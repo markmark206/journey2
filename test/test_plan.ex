@@ -99,7 +99,7 @@ defmodule Journey.Test.UserJourney do
 
   def user_lifetime_completed(execution, computation_id, slow, fail) do
     prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
-    Logger.info("#{prefix}: starting. execution: #{inspect(execution, pretty: true)}")
+    Logger.info("#{prefix}: starting")
 
     if slow do
       :timer.sleep(2000)
