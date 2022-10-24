@@ -224,19 +224,23 @@ defmodule Journey.Execution.Store do
     |> Journey.Repo.all()
   end
 
-  def find_scheduled_computations_that_are_past_due(past_due_by_longer_than_seconds) do
+  def find_scheduled_computations_that_are_past_due(past_due_by_longer_than_seconds, process_ids) do
     # TODO: think about cascading failures. if the system becomes overloaded, and falls behind on processing and more scheduled tasks become past due, this will cause more attemepts to kick off the computations.
     cut_off_time_epoch_seconds = Journey.Utilities.curent_unix_time_sec() - past_due_by_longer_than_seconds
 
     from(
       computation in Journey.Schema.Computation,
-      where: computation.result_code == ^:scheduled and computation.scheduled_time < ^cut_off_time_epoch_seconds,
+      join: execution in Journey.Schema.Execution,
+      on: computation.execution_id == execution.id,
+      where:
+        computation.result_code == ^:scheduled and computation.scheduled_time < ^cut_off_time_epoch_seconds and
+          execution.process_id in ^process_ids,
       select: computation.execution_id
     )
     |> Journey.Repo.all()
   end
 
-  def find_executions_with_unscheduled_schedulable_tasks() do
+  def find_executions_with_unscheduled_schedulable_tasks(process_ids) do
     # Find computations whose last revision was related to a scheduled task getting completed. This catches the condition where things went sideways after a scheduled task completed, before a new computation was able to get scheduled.
 
     from(
@@ -245,7 +249,7 @@ defmodule Journey.Execution.Store do
       on: computation.execution_id == execution.id,
       where:
         computation.ex_revision == execution.revision and computation.scheduled_time != ^0 and
-          computation.result_code != ^:scheduled,
+          computation.result_code != ^:scheduled and execution.id in ^process_ids,
       select: execution.id
     )
     |> Journey.Repo.all()
@@ -393,13 +397,15 @@ defmodule Journey.Execution.Store do
     load(execution.id, include_computations)
   end
 
-  def mark_abandoned_computations_as_expired(now) do
+  def mark_abandoned_computations_as_expired(now, process_ids) do
     # Find old abandoned computations, mark them as expired, and return them.
 
     {count, updated_items} =
       from(
         c in Journey.Schema.Computation,
-        where: c.result_code == ^:computing and c.deadline < ^now,
+        join: e in Journey.Schema.Execution,
+        on: c.execution_id == e.id,
+        where: c.result_code == ^:computing and c.deadline < ^now and e.process_id in ^process_ids,
         # where: c.result_code == ^:failed,
         select: c
       )

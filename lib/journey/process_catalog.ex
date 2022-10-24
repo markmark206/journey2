@@ -34,4 +34,11 @@ defmodule Journey.ProcessCatalog do
 
     get(process.process_id)
   end
+
+  @spec get_registered_processes :: list(String.t())
+  def get_registered_processes() do
+    Agent.get(__MODULE__, fn state ->
+      Map.keys(state)
+    end)
+  end
 end

@@ -8,7 +8,7 @@ defmodule Journey.Execution.Daemons do
     now = Journey.Utilities.curent_unix_time_sec()
 
     now
-    |> Journey.Execution.Store.mark_abandoned_computations_as_expired()
+    |> Journey.Execution.Store.mark_abandoned_computations_as_expired(Journey.ProcessCatalog.get_registered_processes())
     |> Enum.map(fn expired_computation ->
       prefix = "#{f_name()}[#{expired_computation.execution_id}][#{expired_computation.id}]"
 
@@ -25,11 +25,15 @@ defmodule Journey.Execution.Daemons do
   defp collect_past_due_scheduled_computations() do
     past_due_deadline_seconds = 3
 
-    Journey.Execution.Store.find_scheduled_computations_that_are_past_due(past_due_deadline_seconds)
+    Journey.Execution.Store.find_scheduled_computations_that_are_past_due(
+      past_due_deadline_seconds,
+      Journey.ProcessCatalog.get_registered_processes()
+    )
   end
 
   defp collect_unscheduled_scheduled_executions() do
-    Journey.Execution.Store.find_executions_with_unscheduled_schedulable_tasks()
+    Journey.ProcessCatalog.get_registered_processes()
+    |> Journey.Execution.Store.find_executions_with_unscheduled_schedulable_tasks()
   end
 
   @spec sweep_and_revisit_expired_computations :: :ok
@@ -59,12 +63,21 @@ defmodule Journey.Execution.Daemons do
     Logger.debug("#{f_name()}: exit")
   end
 
+  def delay_and_sweep_task(min_delay_in_seconds) do
+    Logger.info("delay_and_sweep_task: starting... base delay: #{min_delay_in_seconds} seconds")
+    delay_and_sweep(min_delay_in_seconds)
+  end
+
   @spec delay_and_sweep(number) :: no_return
   def delay_and_sweep(min_delay_in_seconds) do
     # Every once in a while (between min_delay_seconds and 2 * min_delay_seconds),
     # detect and "sweep" abandoned tasks.
 
-    Logger.debug("delay_and_sweep: starting run (base delay: #{min_delay_in_seconds} seconds)")
+    registered_processes = Journey.ProcessCatalog.get_registered_processes() |> Enum.join(", ")
+
+    Logger.debug(
+      "delay_and_sweep: starting run (base delay: #{min_delay_in_seconds} seconds). registered processes: '#{registered_processes}'"
+    )
 
     to_random_ms = fn base_sec ->
       ((base_sec + base_sec * :rand.uniform()) * 1000) |> round()
@@ -84,7 +97,7 @@ defmodule Journey.Execution.Daemons do
     # TODO: kick this off as a supervised task.
     {:ok, _pid} =
       Task.start(fn ->
-        Journey.Execution.Daemons.delay_and_sweep(min_delay_seconds)
+        Journey.Execution.Daemons.delay_and_sweep_task(min_delay_seconds)
       end)
       |> tap(fn {:ok, pid} ->
         Logger.info("background sweeping process started. #{inspect(pid)}")

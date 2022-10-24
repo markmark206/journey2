@@ -202,6 +202,10 @@ defmodule Journey.Execution.Scheduler2 do
       process_step.expires_after_seconds
     )
     |> case do
+      {:error, :no_scheduled_computation_exists} ->
+        Logger.warning("#{func_name}: no scheduled computations for #{execution.id}")
+        Journey.Execution.Scheduler2.advance(execution)
+
       {:ok, computation_object} ->
         # TODO: move the calls to `process_step.func.(execution)` and its handling to a separate function.
         # Successfully updated a scheduled computation object. Proceed with the computation.
