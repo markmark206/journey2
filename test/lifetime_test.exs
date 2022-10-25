@@ -244,7 +244,9 @@ defmodule Journey.Test.Lifetime do
       execution
     end)
 
+    Logger.info("test: shutting down background sweeper task.")
     Task.shutdown(task)
+    Logger.info("test: shutting down background sweeper task... done.")
 
     # end)
   end
@@ -319,7 +321,10 @@ defmodule Journey.Test.Lifetime do
     # Check that the execution looks as we expect over a period of time.
     Enum.reduce(1..3, {[], []}, check_counts)
     # end)
+
+    Logger.info("test: shutting down background sweeper task")
     Task.shutdown(task)
+    Logger.info("test: shutting down background sweeper task... done.")
   end
 
   @tag timeout: 200_000
@@ -336,7 +341,9 @@ defmodule Journey.Test.Lifetime do
     :timer.sleep(40_000)
     Logger.info("... exiting")
 
+    Logger.info("test: shutting down background sweeper task.")
     Task.shutdown(task)
+    Logger.info("test: shutting down background sweeper task... done.")
   end
 
   defp check_frequency(slow) do
