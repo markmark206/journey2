@@ -10,8 +10,8 @@ defmodule Journey.Application do
       # Starts a worker by calling: MyApp.Worker.start_link(arg)
       # {MyApp.Worker, arg}
       {Journey.Repo, []},
-      Journey.ProcessCatalog
-      # Journey.ExecutionStore
+      Journey.ProcessCatalog,
+      {Task, fn -> Journey.Execution.Daemons.delay_and_sweep_task(5) end}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
