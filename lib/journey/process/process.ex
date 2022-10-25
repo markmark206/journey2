@@ -1,6 +1,5 @@
 defmodule Journey.Process do
   require Logger
-  import Journey.Utilities, only: [f_name: 0]
 
   defstruct [
     :process_id,
@@ -37,12 +36,19 @@ defmodule Journey.Process do
     |> Enum.find(fn s -> s.name == step_name end)
   end
 
-  @two_minutes_in_seconds 2 * 60
+  #  @two_minutes_in_seconds 2 * 60
+  #
+  # # TODO: remove these from this module, and use Daemon's tasks directly.
+  # @spec kick_off_background_tasks(number) :: {:ok, pid()}
+  # def kick_off_background_tasks(min_delay_seconds \\ @two_minutes_in_seconds) do
+  #   Logger.info("#{f_name()}: kicking off background tasks. base delay: #{min_delay_seconds} seconds")
 
-  @spec kick_off_background_tasks(number) :: :ok
-  def kick_off_background_tasks(min_delay_seconds \\ @two_minutes_in_seconds) do
-    Logger.info("#{f_name()}: kicking off background tasks. base delay: #{min_delay_seconds} seconds")
-    {:ok, _} = Journey.Execution.Daemons.start(min_delay_seconds)
-    Logger.info("#{f_name()}: background tasks started")
-  end
+  #   {:ok, _pid} =
+  #     Journey.Execution.Daemons.start(min_delay_seconds)
+  #     |> tap(fn _ -> Logger.info("#{f_name()}: background tasks started") end)
+  # end
+
+  # def shutdown_background_tasks(pid) do
+  #   Journey.Execution.Daemons.shutdown(pid)
+  # end
 end
