@@ -103,4 +103,8 @@ defmodule Journey.Execution.Daemons do
         Logger.info("background sweeping process started. #{inspect(pid)}")
       end)
   end
+
+  # def shutdown(pid) do
+  #   Task.shutdown(pid)
+  # end
 end

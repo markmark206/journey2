@@ -108,19 +108,6 @@ defmodule Journey.Test.Lifetime do
     # end)
   end
 
-  @tag :skip
-  @tag timeout: 600_000
-  test "execute a basic process", %{test_id: test_id} do
-    # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
-    for slow <- [true, false] do
-      for fail <- [true, false] do
-        testing_basic_process(test_id, slow, fail)
-      end
-    end
-
-    # end)
-  end
-
   @tag timeout: 600_000
   test "execute a basic process (slow, force failure)", %{test_id: test_id} do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
@@ -155,10 +142,13 @@ defmodule Journey.Test.Lifetime do
     Journey.Process.register_itinerary(Journey.Test.UserJourneyAbandonedSweeps.itinerary())
 
     # Start background sweep tasks. TODO: run this supervised / under OTP.
-    Journey.Process.kick_off_background_tasks(@base_delay_for_background_tasks_seconds)
+    task =
+      Task.async(fn ->
+        Journey.Execution.Daemons.delay_and_sweep_task(2)
+      end)
 
     user_ids =
-      for sequence <- 1..100 do
+      for sequence <- 1..1 do
         "user_abandoned_tasks_#{test_id}_#{sequence}"
       end
 
@@ -254,6 +244,8 @@ defmodule Journey.Test.Lifetime do
       execution
     end)
 
+    Task.shutdown(task)
+
     # end)
   end
 
@@ -262,10 +254,13 @@ defmodule Journey.Test.Lifetime do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
     user_id = "user_recurring_tasks_#{test_id}"
 
-    Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
-
     # Start background sweep tasks. TODO: run this supervised / under OTP.
-    Journey.Process.kick_off_background_tasks(@base_delay_for_background_tasks_seconds)
+    task =
+      Task.async(fn ->
+        Journey.Execution.Daemons.delay_and_sweep_task(2)
+      end)
+
+    Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
     # Start process execution.
     execution =
@@ -324,18 +319,24 @@ defmodule Journey.Test.Lifetime do
     # Check that the execution looks as we expect over a period of time.
     Enum.reduce(1..3, {[], []}, check_counts)
     # end)
+    Task.shutdown(task)
   end
 
   @tag timeout: 200_000
   test "just running background sweepers", %{test_id: _test_id} do
-    # Start background sweep tasks. TODO: run this supervised / under OTP.
     Journey.Process.register_itinerary(Journey.Test.UserJourneyScheduledRecurring.itinerary())
 
-    Journey.Process.kick_off_background_tasks(@base_delay_for_background_tasks_seconds)
+    # Start background sweep tasks. TODO: run this supervised / under OTP.
+    task =
+      Task.async(fn ->
+        Journey.Execution.Daemons.delay_and_sweep_task(2)
+      end)
 
     Logger.info("waiting before exising...")
     :timer.sleep(40_000)
     Logger.info("... exiting")
+
+    Task.shutdown(task)
   end
 
   defp check_frequency(slow) do
