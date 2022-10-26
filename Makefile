@@ -11,6 +11,9 @@
 build:
 	mix compile --force
 
+db-reset-test:
+	MIX_ENV=test mix ecto.rollback && MIX_ENV=test mix ecto.migrate
+
 dialyzer:
 	mix dialyzer
 
@@ -28,4 +31,7 @@ lint:
 pre-commit: build lint dialyzer test
 
 test:
-	mix test --cover
+	mix test --cover --trace  --slowest 4 --warnings-as-errors
+
+test-show-warnings:
+	mix test --max-failures=0 --warnings-as-errors

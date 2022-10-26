@@ -6,8 +6,6 @@ defmodule Journey.Test.Lifetime do
 
   require WaitForIt
 
-  @base_delay_for_background_tasks_seconds 2
-
   setup do
     {:ok, %{test_id: Journey.Utilities.object_id("tid")}}
   end
