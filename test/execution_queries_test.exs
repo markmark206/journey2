@@ -1,6 +1,5 @@
 defmodule Journey.Test.Execution.Queries do
-  use ExUnit.Case
-  # use Journey.RepoCase
+  use Journey.RepoCase
 
   setup do
     {:ok, %{test_id: Journey.Utilities.object_id("tid")}}
