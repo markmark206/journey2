@@ -19,5 +19,7 @@ defmodule Journey.Test.Execution.Queries do
     assert execution_loaded
     assert execution_loaded.id == execution.id
     assert Journey.Execution.Queries.get_computation_value(execution_loaded, :user_id) == user_id
+
+    [] = Journey.Execution.Queries.find_by_value(:user_id, "no such user")
   end
 end
