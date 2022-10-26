@@ -22,6 +22,23 @@ defmodule Journey.Execution.Store do
     |> Journey.Repo.preload([:computations])
   end
 
+  def find_executions_by_value(step_name, expected_value) do
+    step_name_string = Atom.to_string(step_name)
+
+    from(
+      execution in Journey.Schema.Execution,
+      join: computation in Journey.Schema.Computation,
+      on: computation.execution_id == execution.id,
+      where:
+        computation.result_code == ^:computed and computation.name == ^step_name_string and
+          json_extract_path(computation.result_value, ["value"]) == ^expected_value,
+      select: execution,
+      preload: [:computations]
+    )
+    |> Journey.Repo.all()
+    |> Enum.map(fn e -> cleanup_computations(e) end)
+  end
+
   def create_new_scheduled_computation_record_maybe(execution, step_name, schedule_for)
       when is_atom(step_name) do
     step_name_string = Atom.to_string(step_name)

@@ -27,6 +27,7 @@ defmodule Journey.Repo.Migrations.Initial do
     create(index(:computations, [:execution_id, :name]))
     create(index(:computations, [:start_time]))
     create(index(:computations, [:end_time]))
+    create(index(:computations, [:deadline]))
     create(index(:computations, [:scheduled_time]))
   end
 end

@@ -2,7 +2,7 @@ defmodule Journey.Test.UserJourney do
   require Logger
   import Journey.Utilities, only: [f_name: 0]
 
-  def itinerary(slow \\ false, fail \\ true) do
+  def itinerary(slow \\ false, fail \\ false) do
     %Journey.Process{
       process_id: "#{__MODULE__}_slow_#{slow}_fail_#{fail}",
       steps: [
