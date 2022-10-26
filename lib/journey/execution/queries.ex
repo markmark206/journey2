@@ -17,6 +17,10 @@ defmodule Journey.Execution.Queries do
     end
   end
 
+  def find_by_value(step_name, value) do
+    Journey.Execution.Store.find_executions_by_value(step_name, value)
+  end
+
   def get_sorted_computations(execution, computation_name) do
     execution
     |> get_computations(computation_name)
