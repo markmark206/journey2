@@ -1,5 +1,4 @@
 defmodule Journey.Test.ScheduledRecurring do
-  # use ExUnit.Case
   use Journey.RepoCase
 
   require Logger
@@ -13,13 +12,8 @@ defmodule Journey.Test.ScheduledRecurring do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
     user_id = "user_recurring_tasks_#{test_id}"
 
-    # Start background sweep tasks. TODO: run this supervised / under OTP.
-    task =
-      Task.async(fn ->
-        Journey.Execution.Daemons.delay_and_sweep_task(2)
-      end)
-
-    Journey.Process.register_itinerary(Journey.Test.Plans.ScheduledRecurring.itinerary())
+    Journey.Test.Plans.ScheduledRecurring.itinerary()
+    |> Journey.Process.register_itinerary()
 
     # Start process execution.
     execution =
@@ -78,9 +72,5 @@ defmodule Journey.Test.ScheduledRecurring do
     # Check that the execution looks as we expect over a period of time.
     Enum.reduce(1..3, {[], []}, check_counts)
     # end)
-
-    Logger.info("test: shutting down background sweeper task")
-    Task.shutdown(task)
-    Logger.info("test: shutting down background sweeper task... done.")
   end
 end
