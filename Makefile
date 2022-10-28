@@ -33,5 +33,8 @@ pre-commit: build lint dialyzer test
 test:
 	mix test --cover --trace  --slowest 4 --warnings-as-errors
 
+test-fast:
+	mix test --cover --trace  --slowest 4 --only fast:true --warnings-as-errors
+
 test-show-warnings:
 	mix test --max-failures=0 --warnings-as-errors
