@@ -19,7 +19,7 @@ defmodule Journey.MixProject do
       source_url: "https://github.com/markmark206/journey2",
       test_coverage: [
         summary: [
-          threshold: 90
+          threshold: 89
         ]
       ],
       docs: [
