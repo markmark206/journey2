@@ -13,7 +13,7 @@ defmodule Journey.Test.Lifetime do
   @tag timeout: 600_000
   test "abandoned / expired computation, recomputed, many of them", %{test_id: test_id} do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
-    Journey.Test.PlanAbandonedSweeps.itinerary()
+    Journey.Test.Plans.AbandonedSweeps.itinerary()
     |> Journey.Process.register_itinerary()
 
     # Start background sweep tasks. TODO: run this supervised / under OTP.
@@ -33,7 +33,7 @@ defmodule Journey.Test.Lifetime do
       |> Enum.map(fn user_id ->
         # Start process execution.
         execution =
-          Journey.Test.PlanAbandonedSweeps.itinerary()
+          Journey.Test.Plans.AbandonedSweeps.itinerary()
           |> Journey.Process.start()
 
         assert execution
@@ -137,11 +137,11 @@ defmodule Journey.Test.Lifetime do
         Journey.Execution.Daemons.delay_and_sweep_task(2)
       end)
 
-    Journey.Process.register_itinerary(Journey.Test.PlanScheduledRecurring.itinerary())
+    Journey.Process.register_itinerary(Journey.Test.Plans.ScheduledRecurring.itinerary())
 
     # Start process execution.
     execution =
-      Journey.Test.PlanScheduledRecurring.itinerary()
+      Journey.Test.Plans.ScheduledRecurring.itinerary()
       |> Journey.Process.start()
 
     assert execution
@@ -204,7 +204,7 @@ defmodule Journey.Test.Lifetime do
 
   @tag timeout: 200_000
   test "just running background sweepers", %{test_id: _test_id} do
-    Journey.Process.register_itinerary(Journey.Test.PlanScheduledRecurring.itinerary())
+    Journey.Process.register_itinerary(Journey.Test.Plans.ScheduledRecurring.itinerary())
 
     # Start background sweep tasks. TODO: run this supervised / under OTP.
     task =

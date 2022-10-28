@@ -1,32 +1,35 @@
-defmodule Journey.Test.PlanAbandonedSweeps do
+defmodule Journey.Test.Plans.Basic do
   require Logger
   import Journey.Utilities, only: [f_name: 0]
 
-  @abandoned_task_expires_after_seconds 10
-
-  def itinerary() do
+  def itinerary(slow \\ false, fail \\ false) do
     %Journey.Process{
-      process_id: "#{__MODULE__}",
+      process_id: "#{__MODULE__}_slow_#{slow}_fail_#{fail}",
       steps: [
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: &Journey.Test.PlanAbandonedSweeps.send_morning_update_one_time/2,
+          func: fn execution, computation_id ->
+            Journey.Test.Plans.Basic.send_morning_update(execution, computation_id, slow, fail)
+          end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: &Journey.Test.PlanAbandonedSweeps.send_evening_check_in_one_time/2,
+          func: fn execution, computation_id ->
+            Journey.Test.Plans.Basic.send_evening_check_in(execution, computation_id, slow, fail)
+          end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :user_lifetime_completed,
-          func: &Journey.Test.PlanAbandonedSweeps.user_lifetime_completed/2,
-          expires_after_seconds: @abandoned_task_expires_after_seconds,
+          func: fn execution, computation_id ->
+            Journey.Test.Plans.Basic.user_lifetime_completed(execution, computation_id, slow, fail)
+          end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},
             %Journey.Process.BlockedBy{step_name: :morning_update, condition: :provided}
@@ -36,20 +39,25 @@ defmodule Journey.Test.PlanAbandonedSweeps do
     }
   end
 
-  def send_evening_check_in_one_time(execution, computation_id) do
+  def send_evening_check_in(execution, computation_id, slow, _fail) do
     prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
     Logger.info("#{prefix}: starting")
 
+    if slow do
+      :timer.sleep(2000)
+    end
+
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
+    run_result = "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}"
+
     Logger.info("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      # Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{prefix}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      # Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{prefix}: done, let's do this again.")
       # Run again in five minutes.
       # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
@@ -58,21 +66,25 @@ defmodule Journey.Test.PlanAbandonedSweeps do
     end
   end
 
-  def send_morning_update_one_time(execution, computation_id) do
+  def send_morning_update(execution, computation_id, slow, _fail) do
     prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
     Logger.info("#{prefix}: starting")
 
+    if slow do
+      :timer.sleep(3000)
+    end
+
     current_time_seconds = Journey.Utilities.curent_unix_time_sec()
-    run_result = "#{__MODULE__}.#{f_name()} for user #{user_id(execution)}"
+    run_result = "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}"
 
     Logger.info("#{prefix}: done.")
 
     if rem(current_time_seconds, 100) == 0 do
-      # Logger.info("#{function_name}: done, forever.")
+      # Logger.info("#{prefix}: done, forever.")
       # Don't run again, just record, the result.
       {:ok, run_result}
     else
-      # Logger.info("#{function_name}: done, let's do this again.")
+      # Logger.info("#{prefix}: done, let's do this again.")
       # Run again in five minutes.
       # TODO: implement
       # This is not currently implemented, of course, just prototyping things a bit. (10/13/2022)
@@ -85,9 +97,17 @@ defmodule Journey.Test.PlanAbandonedSweeps do
     Journey.Execution.Queries.get_computation_value(execution, :user_id)
   end
 
-  def user_lifetime_completed(execution, computation_id) do
-    prefix = "[#{f_name()}][#{execution.id}}][#{computation_id}][#{user_id(execution)}]"
-    Logger.info("#{prefix}: starting.")
+  defp testing_failure() do
+    "testing failure"
+  end
+
+  def user_lifetime_completed(execution, computation_id, slow, fail) do
+    prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
+    Logger.info("#{prefix}: starting")
+
+    if slow do
+      :timer.sleep(2000)
+    end
 
     # All of the upstream tasks must have been computed before this task starts computing.
     :computed = Journey.Execution.Queries.get_computation_status(execution, :user_id)
@@ -104,24 +124,14 @@ defmodule Journey.Test.PlanAbandonedSweeps do
         ", "
       )
 
-    Logger.debug("#{prefix}: computations so far: [#{computations_so_far}]")
+    Logger.info("#{prefix}: computations so far: [#{computations_so_far}]")
 
-    # TODO: receive task name as a function argument.
-    my_first_execution =
-      nil == Enum.find(execution.computations, fn computation -> computation.name == :user_lifetime_completed end)
-
-    if my_first_execution do
-      # Sleep long enough for the task to be considered abandoned.
-      Logger.info("#{prefix}: take so long, the task looks abandoned")
-      sleep_time_ms = (2 * @abandoned_task_expires_after_seconds + 5) * 1000
-      :timer.sleep(sleep_time_ms)
-    else
-      # Just a quick nap, not long enough to be considered abandoned.
-      :timer.sleep(1000 * floor(@abandoned_task_expires_after_seconds / 4))
+    if fail do
+      {_a, _b} = testing_failure()
     end
 
     run_result = [
-      "user lifetime completed for user #{user_id(execution)}",
+      "#{execution.process_id}.#{f_name()} for user #{user_id(execution)}",
       computations_so_far
     ]
 

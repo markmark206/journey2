@@ -1,4 +1,4 @@
-defmodule Journey.Test.PlanScheduledRecurring do
+defmodule Journey.Test.Plans.ScheduledRecurring do
   require Logger
   import Journey.Utilities, only: [f_name: 0]
 
@@ -11,23 +11,23 @@ defmodule Journey.Test.PlanScheduledRecurring do
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: &Journey.Test.PlanScheduledRecurring.send_morning_update/2,
-          func_next_execution_time_epoch_seconds: &Journey.Test.PlanScheduledRecurring.tomorrow_morning/1,
+          func: &Journey.Test.Plans.ScheduledRecurring.send_morning_update/2,
+          func_next_execution_time_epoch_seconds: &Journey.Test.Plans.ScheduledRecurring.tomorrow_morning/1,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: &Journey.Test.PlanScheduledRecurring.send_evening_check_in/2,
-          func_next_execution_time_epoch_seconds: &Journey.Test.PlanScheduledRecurring.tomorrow_evening/1,
+          func: &Journey.Test.Plans.ScheduledRecurring.send_evening_check_in/2,
+          func_next_execution_time_epoch_seconds: &Journey.Test.Plans.ScheduledRecurring.tomorrow_evening/1,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         }
         # %Journey.Process.Step{
         #   name: :user_lifetime_completed,
-        #   func: &Journey.Test.PlanScheduledRecurring.user_lifetime_completed/1,
+        #   func: &Journey.Test.Plans.ScheduledRecurring.user_lifetime_completed/1,
         #   expires_after_seconds: @abandoned_task_expires_after_seconds,
         #   blocked_by: [
         #     %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},

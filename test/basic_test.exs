@@ -13,7 +13,7 @@ defmodule Journey.Test.Basic do
   def testing_basic_process(test_id, slow, fail) do
     # Ecto.Adapters.SQL.Sandbox.unboxed_run(Journey.Repo, fn ->
 
-    itinerary = Journey.Test.PlanBasic.itinerary(slow, fail)
+    itinerary = Journey.Test.Plans.Basic.itinerary(slow, fail)
     Journey.Process.register_itinerary(itinerary)
 
     user_id = "user_basic_#{slow}_#{fail}_#{test_id}"
@@ -68,7 +68,7 @@ defmodule Journey.Test.Basic do
     assert Journey.Execution.Queries.get_computation(execution, :morning_update).error_details == nil
 
     expected_morning_update_result =
-      "Elixir.Journey.Test.PlanBasic_slow_#{slow}_fail_#{fail}.send_morning_update for user #{user_id}"
+      "Elixir.Journey.Test.Plans.Basic_slow_#{slow}_fail_#{fail}.send_morning_update for user #{user_id}"
 
     assert Journey.Execution.Queries.get_computation_value(execution, :morning_update) ==
              expected_morning_update_result
@@ -77,7 +77,7 @@ defmodule Journey.Test.Basic do
     assert Journey.Execution.Queries.get_computation(execution, :evening_check_in).error_details == nil
 
     expected_evening_checkin_result =
-      "Elixir.Journey.Test.PlanBasic_slow_#{slow}_fail_#{fail}.send_evening_check_in for user #{user_id}"
+      "Elixir.Journey.Test.Plans.Basic_slow_#{slow}_fail_#{fail}.send_evening_check_in for user #{user_id}"
 
     assert Journey.Execution.Queries.get_computation_value(execution, :evening_check_in) ==
              expected_evening_checkin_result
@@ -91,7 +91,7 @@ defmodule Journey.Test.Basic do
       assert Journey.Execution.Queries.get_computation(execution, :user_lifetime_completed).error_details == nil
 
       assert Journey.Execution.Queries.get_computation_value(execution, :user_lifetime_completed) == [
-               "Elixir.Journey.Test.PlanBasic_slow_#{slow}_fail_#{fail}.user_lifetime_completed for user #{user_id}",
+               "Elixir.Journey.Test.Plans.Basic_slow_#{slow}_fail_#{fail}.user_lifetime_completed for user #{user_id}",
                Enum.join(["#{user_id}", expected_morning_update_result, expected_evening_checkin_result], ", ")
              ]
     end
