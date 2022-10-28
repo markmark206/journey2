@@ -1,12 +1,14 @@
 defmodule Journey.Process.ValueCondition do
   defstruct [
     :condition,
-    :value
+    :value,
+    :f_comparison
   ]
 
   @type t :: %__MODULE__{
           condition: :provided | :equal,
-          value: any()
+          value: any(),
+          f_comparison: (map() -> boolean())
         }
 end
 

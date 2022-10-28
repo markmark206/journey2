@@ -9,7 +9,7 @@ defmodule Journey.Test.Execution.Queries do
     user_id = "user_test_reference_id_#{test_id}"
 
     execution =
-      Journey.Test.UserJourney.itinerary()
+      Journey.Test.Plans.Basic.itinerary()
       |> Journey.Process.register_itinerary()
       |> Journey.Process.start()
       |> Journey.Execution.set_value(:user_id, user_id)

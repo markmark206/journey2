@@ -1,4 +1,4 @@
-defmodule Journey.Test.UserJourneyAbandonedSweeps do
+defmodule Journey.Test.Plans.AbandonedSweeps do
   require Logger
   import Journey.Utilities, only: [f_name: 0]
 
@@ -11,21 +11,21 @@ defmodule Journey.Test.UserJourneyAbandonedSweeps do
         %Journey.Process.Step{name: :user_id},
         %Journey.Process.Step{
           name: :morning_update,
-          func: &Journey.Test.UserJourneyAbandonedSweeps.send_morning_update_one_time/2,
+          func: &Journey.Test.Plans.AbandonedSweeps.send_morning_update_one_time/2,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :evening_check_in,
-          func: &Journey.Test.UserJourneyAbandonedSweeps.send_evening_check_in_one_time/2,
+          func: &Journey.Test.Plans.AbandonedSweeps.send_evening_check_in_one_time/2,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
           ]
         },
         %Journey.Process.Step{
           name: :user_lifetime_completed,
-          func: &Journey.Test.UserJourneyAbandonedSweeps.user_lifetime_completed/2,
+          func: &Journey.Test.Plans.AbandonedSweeps.user_lifetime_completed/2,
           expires_after_seconds: @abandoned_task_expires_after_seconds,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},

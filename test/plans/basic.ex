@@ -1,4 +1,4 @@
-defmodule Journey.Test.UserJourney do
+defmodule Journey.Test.Plans.Basic do
   require Logger
   import Journey.Utilities, only: [f_name: 0]
 
@@ -10,7 +10,7 @@ defmodule Journey.Test.UserJourney do
         %Journey.Process.Step{
           name: :morning_update,
           func: fn execution, computation_id ->
-            Journey.Test.UserJourney.send_morning_update(execution, computation_id, slow, fail)
+            Journey.Test.Plans.Basic.send_morning_update(execution, computation_id, slow, fail)
           end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
@@ -19,7 +19,7 @@ defmodule Journey.Test.UserJourney do
         %Journey.Process.Step{
           name: :evening_check_in,
           func: fn execution, computation_id ->
-            Journey.Test.UserJourney.send_evening_check_in(execution, computation_id, slow, fail)
+            Journey.Test.Plans.Basic.send_evening_check_in(execution, computation_id, slow, fail)
           end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :user_id, condition: :provided}
@@ -28,7 +28,7 @@ defmodule Journey.Test.UserJourney do
         %Journey.Process.Step{
           name: :user_lifetime_completed,
           func: fn execution, computation_id ->
-            Journey.Test.UserJourney.user_lifetime_completed(execution, computation_id, slow, fail)
+            Journey.Test.Plans.Basic.user_lifetime_completed(execution, computation_id, slow, fail)
           end,
           blocked_by: [
             %Journey.Process.BlockedBy{step_name: :evening_check_in, condition: :provided},
@@ -97,6 +97,10 @@ defmodule Journey.Test.UserJourney do
     Journey.Execution.Queries.get_computation_value(execution, :user_id)
   end
 
+  defp testing_failure() do
+    "testing failure"
+  end
+
   def user_lifetime_completed(execution, computation_id, slow, fail) do
     prefix = "[#{f_name()}][#{execution.id}][#{computation_id}][#{user_id(execution)}]"
     Logger.info("#{prefix}: starting")
@@ -123,7 +127,7 @@ defmodule Journey.Test.UserJourney do
     Logger.info("#{prefix}: computations so far: [#{computations_so_far}]")
 
     if fail do
-      {_a, _b} = "testing failure"
+      {_a, _b} = testing_failure()
     end
 
     run_result = [
