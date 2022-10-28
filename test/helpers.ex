@@ -4,8 +4,6 @@ defmodule Journey.Test.Helpers do
   require Logger
   require WaitForIt
 
-  import Journey.Utilities, only: [f_name: 0]
-
   def wait_for_all_steps_to_be_completed(execution, check_wait, check_frequency) do
     case WaitForIt.wait(
            Journey.Execution.reload(execution)
