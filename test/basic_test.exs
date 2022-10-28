@@ -1,5 +1,4 @@
 defmodule Journey.Test.Basic do
-  # use ExUnit.Case
   use Journey.RepoCase
 
   import Journey.Test.Helpers
