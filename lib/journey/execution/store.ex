@@ -41,12 +41,15 @@ defmodule Journey.Execution.Store do
     |> Enum.map(fn e -> cleanup_computations(e) end)
   end
 
+  # TODO: address credo disables in this file.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def create_new_scheduled_computation_record_maybe(execution, step_name, schedule_for)
       when is_atom(step_name) do
     step_name_string = Atom.to_string(step_name)
     func_name = "#{f_name()}[#{execution.id}.#{step_name}]"
     Logger.debug("#{func_name}: starting")
 
+    # TODO: refactor this, e. g. 'def execute_under_locked_execution(f)'
     Journey.Repo.transaction(fn repo ->
       # "Lock" the execution record.
       execution_db_record =
@@ -79,12 +82,17 @@ defmodule Journey.Execution.Store do
             select: computation
           )
           |> Journey.Repo.update_all(set: [result_code: :rescheduled])
-          |> tap(fn {count, marked_as_rescheduled} ->
-            if count > 0 do
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
+          |> case do
+            {0, _x} = none ->
+              none
+
+            {count, marked_as_rescheduled} = some ->
               ids = marked_as_rescheduled |> Enum.map_join(", ", &str_summary/1)
               Logger.info("#{func_name}: marked #{count} canceled computation records as 'rescheduled': #{ids}")
-            end
-          end)
+
+              some
+          end
 
           updated_execution_record =
             execution_db_record
