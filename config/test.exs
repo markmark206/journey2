@@ -23,4 +23,4 @@ config :logger,
        :console,
        format: "$time [$level] $metadata$message\n",
        level: :info,
-       metadata: []
+       metadata: [:pid]
