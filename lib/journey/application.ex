@@ -5,13 +5,26 @@ defmodule Journey.Application do
 
   use Application
 
+  def sweeper_period_seconds() do
+    case Application.get_env(:journey, :sweeper_period_seconds) do
+      nil ->
+        5
+
+      configured_value ->
+        configured_value
+    end
+  end
+
   def start(_type, _args) do
     children = [
       # Starts a worker by calling: MyApp.Worker.start_link(arg)
       # {MyApp.Worker, arg}
       {Journey.Repo, []},
       Journey.ProcessCatalog,
-      {Task, fn -> Journey.Execution.Daemons.delay_and_sweep_task(5) end}
+      {Task,
+       fn ->
+         Journey.Execution.Daemons.delay_and_sweep_task(sweeper_period_seconds())
+       end}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -16,6 +16,9 @@ config :journey, Journey.Repo,
 config :journey,
   ecto_repos: [Journey.Repo]
 
+config :journey,
+  sweeper_period_seconds: 3
+
 config :logger,
        :console,
        format: "$time [$level] $metadata$message\n",

@@ -64,6 +64,8 @@ defmodule Journey.Test.ScheduledRecurring do
     execution =
       execution
       |> Journey.Execution.set_value(:user_id, user_id)
+      |> Journey.Execution.set_value(:morning_schedule_setting, 10)
+      |> Journey.Execution.set_value(:evening_schedule_setting, 30)
 
     assert execution
 
