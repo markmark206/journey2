@@ -1,6 +1,7 @@
 defmodule Journey.Execution.Scheduler2 do
   import Journey.Utilities, only: [f_name: 0, function_name: 1]
   require Logger
+  import Journey.Schema.Computation, only: [str_summary: 1]
 
   def advance(execution_id) when is_binary(execution_id) do
     execution_id
@@ -99,9 +100,19 @@ defmodule Journey.Execution.Scheduler2 do
     execution
   end
 
+  def cancel_scheduled_computations(execution, step_name) do
+    case Journey.Execution.Store.mark_scheduled_computations_as_canceled(execution, step_name) do
+      {:ok, updated_items} ->
+        {:ok, updated_items, Journey.Execution.reload(execution)}
+
+      {:error, :no_scheduled_computation_exists} ->
+        {:error, :no_scheduled_computation_exists}
+    end
+  end
+
   defp get_schedulable_process_steps(execution) do
     func_name = "#{f_name()}[#{execution.id}]"
-    Logger.info("#{func_name}: enter")
+    Logger.debug("#{func_name}: enter")
 
     # Journey.Utilities.get_call_stack()
     # |> IO.inspect()
@@ -181,7 +192,7 @@ defmodule Journey.Execution.Scheduler2 do
       {:ok, scheduled_computation_object} ->
         # Successfully created a scheduled computation object.
         Logger.info(
-          "#{func_name}[#{scheduled_computation_object.id}][#{scheduled_computation_object.ex_revision}]: scheduled a new computation for #{scheduled_computation_object.scheduled_time}"
+          "#{func_name} #{str_summary(scheduled_computation_object)}: scheduled a new computation for #{scheduled_computation_object.scheduled_time} (#{DateTime.from_unix!(scheduled_computation_object.scheduled_time)})"
         )
 
       {:error, :computation_already_scheduled} ->

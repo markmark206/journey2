@@ -29,11 +29,48 @@ defmodule Journey.Execution.Daemons do
       past_due_deadline_seconds,
       Journey.ProcessCatalog.get_registered_processes()
     )
+    |> case do
+      [] ->
+        []
+
+      past_due_computations ->
+        Logger.info(
+          "sweeper detected #{Enum.count(past_due_computations)} executions with past due computations. #{Enum.join(past_due_computations, ", ")}"
+        )
+
+        past_due_computations
+    end
+  end
+
+  def find_canceled_computations() do
+    Journey.Execution.Store.find_canceled_computations(Journey.ProcessCatalog.get_registered_processes())
+    |> case do
+      [] ->
+        []
+
+      canceled_computations ->
+        Logger.info(
+          "sweeper detected #{Enum.count(canceled_computations)} unscheduled schedule computations, in #{Enum.join(canceled_computations, ", ")}"
+        )
+
+        canceled_computations
+    end
   end
 
   defp collect_unscheduled_scheduled_executions() do
     Journey.ProcessCatalog.get_registered_processes()
     |> Journey.Execution.Store.find_executions_with_unscheduled_schedulable_tasks()
+    |> case do
+      [] ->
+        []
+
+      unscheduled_schedule_tasks ->
+        Logger.info(
+          "sweeper detected #{Enum.count(unscheduled_schedule_tasks)} unscheduled schedule computations, in #{Enum.join(unscheduled_schedule_tasks, ", ")}"
+        )
+
+        unscheduled_schedule_tasks
+    end
   end
 
   @spec sweep_and_revisit_expired_computations :: :ok
@@ -44,17 +81,20 @@ defmodule Journey.Execution.Daemons do
     Journey.Execution.Store.find_scheduled_computations_same_scheduled_time()
     |> case do
       [] ->
-        nil
+        :ok
 
       duplicate_schedules ->
         # some of the computations were scheduled for the same time. Log them, and proceed.
-        Logger.error(
+        Logger.warning(
           "#{f_name()}: detected #{Enum.count(duplicate_schedules)} instance(s) of duplicate schedules:\n: #{inspect(duplicate_schedules, pretty: true)}"
         )
+
+        :ok
     end
 
     (collect_abandoned_computations() ++
-       collect_past_due_scheduled_computations() ++ collect_unscheduled_scheduled_executions())
+       collect_past_due_scheduled_computations() ++
+       collect_unscheduled_scheduled_executions() ++ find_canceled_computations())
     |> Enum.uniq()
     # Revisit the execution, those abandoned / expired computations might still need to be computed.
     # |> Enum.each(&Journey.Execution.Scheduler.kick_off_or_schedule_unblocked_steps_if_any/1)

@@ -17,10 +17,10 @@ defmodule Journey.Test.AbandonedAndExpired do
     |> Journey.Process.register_itinerary()
 
     # Start background sweep tasks. TODO: run this supervised / under OTP.
-    task =
-      Task.async(fn ->
-        Journey.Execution.Daemons.delay_and_sweep_task(2)
-      end)
+    # task =
+    #   Task.async(fn ->
+    #     Journey.Execution.Daemons.delay_and_sweep_task(2)
+    #   end)
 
     user_ids =
       for sequence <- 1..1 do
@@ -119,9 +119,9 @@ defmodule Journey.Test.AbandonedAndExpired do
       execution
     end)
 
-    Logger.info("test: shutting down background sweeper task.")
-    Task.shutdown(task)
-    Logger.info("test: shutting down background sweeper task... done.")
+    # Logger.info("test: shutting down background sweeper task.")
+    # Task.shutdown(task)
+    # Logger.info("test: shutting down background sweeper task... done.")
 
     # end)
   end

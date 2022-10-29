@@ -14,6 +14,12 @@ build:
 db-reset-test:
 	MIX_ENV=test mix ecto.rollback && MIX_ENV=test mix ecto.migrate
 
+db-local-psql:
+	docker exec -it sooshki-postgres psql -U postgres
+
+db-local-psql-test:
+	docker exec -it sooshki-postgres psql -U postgres journey_test
+
 dialyzer:
 	mix dialyzer
 
@@ -27,6 +33,9 @@ lint:
 	mix compile
 	mix format --check-formatted
 	mix credo --all
+
+livebook-run:
+	MIX_ENV=test livebook server
 
 pre-commit: build lint dialyzer test
 

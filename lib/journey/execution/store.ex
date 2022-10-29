@@ -4,6 +4,8 @@ defmodule Journey.Execution.Store do
   require Logger
   import Ecto.Query
 
+  import Journey.Schema.Computation, only: [str_summary: 1]
+
   import Journey.Utilities, only: [f_name: 0]
 
   @doc """
@@ -39,12 +41,15 @@ defmodule Journey.Execution.Store do
     |> Enum.map(fn e -> cleanup_computations(e) end)
   end
 
+  # TODO: address credo disables in this file.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def create_new_scheduled_computation_record_maybe(execution, step_name, schedule_for)
       when is_atom(step_name) do
     step_name_string = Atom.to_string(step_name)
     func_name = "#{f_name()}[#{execution.id}.#{step_name}]"
     Logger.debug("#{func_name}: starting")
 
+    # TODO: refactor this, e. g. 'def execute_under_locked_execution(f)'
     Journey.Repo.transaction(fn repo ->
       # "Lock" the execution record.
       execution_db_record =
@@ -67,6 +72,27 @@ defmodule Journey.Execution.Store do
           # Create a :scheduled computation for this.
           # We are doing this inside of "for update", which protects against multiple processes inserting this record.
           Logger.debug("#{func_name}: creating a new :scheduled computation object")
+
+          # If there are any canceled computations for this task, mark them as rescheduled.
+          from(
+            computation in Journey.Schema.Computation,
+            where:
+              computation.execution_id == ^execution.id and computation.name == ^step_name_string and
+                computation.result_code == ^:canceled,
+            select: computation
+          )
+          |> Journey.Repo.update_all(set: [result_code: :rescheduled])
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
+          |> case do
+            {0, _x} = none ->
+              none
+
+            {count, marked_as_rescheduled} = some ->
+              ids = marked_as_rescheduled |> Enum.map_join(", ", &str_summary/1)
+              Logger.info("#{func_name}: marked #{count} canceled computation records as 'rescheduled': #{ids}")
+
+              some
+          end
 
           updated_execution_record =
             execution_db_record
@@ -158,6 +184,56 @@ defmodule Journey.Execution.Store do
     end
   end
 
+  def mark_scheduled_computations_as_canceled(execution, step_name) do
+    # If there are any scheduled computations for this step
+    func_name = "#{f_name()}[#{execution.id}.#{step_name}]"
+    Logger.debug("#{func_name}: starting")
+
+    step_name_string = Atom.to_string(step_name)
+
+    Journey.Repo.transaction(fn
+      repo ->
+        _execution_db_record =
+          from(ex in Journey.Schema.Execution,
+            where: ex.id == ^execution.id,
+            lock: "FOR UPDATE"
+          )
+          |> repo.one!()
+
+        from(
+          computation in Journey.Schema.Computation,
+          where:
+            computation.execution_id == ^execution.id and computation.name == ^step_name_string and
+              computation.result_code == ^:scheduled,
+          select: computation
+        )
+        |> Journey.Repo.update_all(
+          set: [
+            result_code: :canceled
+          ]
+        )
+        |> case do
+          {0, []} ->
+            Logger.debug("#{func_name}: there is no outstanding scheduled computation to be marked as 'canceled'")
+            {:error, :no_scheduled_computation_exists}
+
+          {x, updated_items} ->
+            Logger.info(
+              "#{func_name}: #{x} ':scheduled' computations changed to ':canceled' #{Enum.map_join(updated_items, ", ", &str_summary/1)}"
+            )
+
+            {:ok, updated_items}
+        end
+    end)
+    |> case do
+      {:ok, {:error, :no_scheduled_computation_exists}} ->
+        {:error, :no_scheduled_computation_exists}
+
+      {:ok, {:ok, updated_items}} ->
+        {:ok, updated_items}
+    end
+  end
+
   def create_new_computation_record_if_one_doesnt_exist_lock(execution, step_name, expires_after_seconds)
       when is_atom(step_name) do
     # Create a new computation record. If one already exists, tell the caller.
@@ -188,6 +264,7 @@ defmodule Journey.Execution.Store do
           # We are doing this inside of "for update", which protects against multiple processes inserting this record.
           Logger.debug("#{func_name}: creating a new computation object")
 
+          # Update revision version on the execution.
           updated_execution_record =
             execution_db_record
             |> Ecto.Changeset.change(revision: execution_db_record.revision + 1)
@@ -196,7 +273,6 @@ defmodule Journey.Execution.Store do
           now = Journey.Utilities.curent_unix_time_sec()
 
           %Journey.Schema.Computation{
-            id: Journey.Utilities.object_id("cmp", 10),
             execution_id: execution.id,
             name: step_name_string,
             scheduled_time: 0,
@@ -255,6 +331,26 @@ defmodule Journey.Execution.Store do
       select: computation.execution_id
     )
     |> Journey.Repo.all()
+  end
+
+  def find_canceled_computations(process_ids) do
+    from(
+      computation in Journey.Schema.Computation,
+      join: execution in Journey.Schema.Execution,
+      on: computation.execution_id == execution.id,
+      where: computation.result_code == ^:canceled and execution.process_id in ^process_ids,
+      select: computation
+    )
+    |> Journey.Repo.all()
+    |> case do
+      [] ->
+        []
+
+      canceled_computations ->
+        ids = canceled_computations |> Enum.map_join(", ", &str_summary/1)
+        Logger.info("detected #{Enum.count(canceled_computations)} canceled computations: #{ids}")
+        canceled_computations |> Enum.map(fn c -> c.execution_id end)
+    end
   end
 
   def find_executions_with_unscheduled_schedulable_tasks(process_ids) do
