@@ -7,6 +7,7 @@ defmodule Journey.Test.ScheduledRecurring do
     {:ok, %{test_id: Journey.Utilities.object_id("tid")}}
   end
 
+  # TODO: merge this into cancel_and_reschedule_recurreing_test.exs -- there is an opportunity for sharing code.
   def check_task_progress(execution, task_id, prev_computed) do
     execution =
       execution
