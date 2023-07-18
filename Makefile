@@ -42,6 +42,7 @@ lint:
 	MIX_ENV=test mix compile
 	MIX_ENV=test mix format --check-formatted
 	MIX_ENV=test mix credo --all
+	MIX_ENV=test mix hex.audit
 
 livebook-run:
 	MIX_ENV=test livebook server
