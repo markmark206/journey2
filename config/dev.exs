@@ -1,7 +1,5 @@
 import Config
 
-import Config
-
 config :journey, Journey.Repo,
   database: "journey_dev",
   username: "postgres",
