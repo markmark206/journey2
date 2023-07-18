@@ -43,6 +43,10 @@ jobs:
       env:
         MIX_ENV: test
       run: make install-dependencies
+    - name: Create DB
+      env:
+        MIX_ENV: test
+      run: make db-init
     - name: Lint
       env:
         MIX_ENV: test
