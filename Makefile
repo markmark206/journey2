@@ -1,5 +1,9 @@
 .PHONY: \
 	build \
+	db-init \
+	db-reset-test \
+	db-local-psql \
+	db-local-psql-test \
 	dialyzer \
 	format \
 	install-dependencies \
@@ -10,6 +14,11 @@
 
 build:
 	mix compile --force
+
+db-init:
+	MIX_ENV=test mix ecto.create
+	MIX_ENV=test mix ecto.migrations
+	MIX_ENV=test mix ecto.migrate
 
 db-reset-test:
 	MIX_ENV=test mix ecto.rollback && MIX_ENV=test mix ecto.migrate
@@ -30,9 +39,9 @@ install-dependencies:
 	mix deps.get
 
 lint:
-	mix compile
-	mix format --check-formatted
-	mix credo --all
+	MIX_ENV=test mix compile
+	MIX_ENV=test mix format --check-formatted
+	MIX_ENV=test mix credo --all
 
 livebook-run:
 	MIX_ENV=test livebook server
