@@ -1,0 +1,53 @@
+name: Run tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: []
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Run tests
+    runs-on: ubuntu-latest
+    services:
+       pg:
+        image: postgres:15.2
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.14.5'
+        otp-version: '25.3.2.4'
+    - name: Restore dependencies cache
+      uses: actions/cache@v3
+      with:
+        path: deps
+        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-
+    - name: Install test dependencies
+      env:
+        MIX_ENV: test
+      run: make install-dependencies
+    - name: Lint
+      env:
+        MIX_ENV: test
+      run: make lint
+    - name: Run tests
+      env:
+        MIX_ENV: test
+      run: make test
