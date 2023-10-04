@@ -184,6 +184,14 @@ defmodule Journey.Execution.Store do
     end
   end
 
+  def get_all_executions_for_process(process_id) do
+    from(ex in Journey.Schema.Execution,
+      where: ex.process_id == ^process_id,
+      select: ex
+    )
+    |> Journey.Repo.all()
+  end
+
   def mark_scheduled_computations_as_canceled(execution, step_name) do
     # If there are any scheduled computations for this step
     func_name = "#{f_name()}[#{execution.id}.#{step_name}]"

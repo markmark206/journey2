@@ -13,7 +13,7 @@
 
 
 build:
-	mix compile --force
+	mix compile --force --warnings-as-errors
 
 db-init:
 	MIX_ENV=test mix ecto.create
@@ -39,7 +39,7 @@ install-dependencies:
 	mix deps.get
 
 lint:
-	MIX_ENV=test mix compile
+	MIX_ENV=test mix compile --warnings-as-errors
 	MIX_ENV=test mix format --check-formatted
 	MIX_ENV=test mix credo --all
 	MIX_ENV=test mix hex.audit
