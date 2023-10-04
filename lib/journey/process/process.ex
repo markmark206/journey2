@@ -17,9 +17,12 @@ defmodule Journey.Process do
   end
 
   def register_itinerary(itinerary) do
+    Logger.info("register_itinerary: '#{itinerary.process_id}'")
+
     itinerary
     |> prepend_with_start_time()
     |> Journey.ProcessCatalog.register()
+    |> tap(fn it -> update_all_executions_with_tasks(itinerary.process_id) end)
   end
 
   def start(itinerary) do
@@ -29,6 +32,17 @@ defmodule Journey.Process do
       itinerary.process_id
       |> Journey.Execution.new()
       |> Journey.Execution.set_value(:started_at, Journey.Utilities.curent_unix_time_sec())
+  end
+
+  def update_all_executions_with_tasks(process_id) do
+    # TODO: introduce the notion of process version, and only update the executions from older process ids.
+    # TODO: add a test.
+    Logger.info("update_all_executions_with_tasks: for process '#{process_id}'")
+
+    for execution <- Journey.Execution.Store.get_all_executions_for_process(process_id) do
+      Logger.info("evaluating execution #{execution.id}")
+      Journey.Execution.Scheduler2.advance(execution)
+    end
   end
 
   def find_step_by_name(process, step_name) when is_atom(step_name) do
