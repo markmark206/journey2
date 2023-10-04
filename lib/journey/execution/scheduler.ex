@@ -110,7 +110,7 @@ defmodule Journey.Execution.Scheduler2 do
     end
   end
 
-  defp get_schedulable_process_steps(execution) do
+  def get_schedulable_process_steps(execution) do
     func_name = "#{f_name()}[#{execution.id}]"
     Logger.debug("#{func_name}: enter")
 
@@ -179,7 +179,7 @@ defmodule Journey.Execution.Scheduler2 do
     # |> IO.inspect(label: "get_runnable_scheduled_process_steps: runnable schedulable step")
   end
 
-  defp try_scheduling_a_scheduled_step(execution, process_step) do
+  def try_scheduling_a_scheduled_step(execution, process_step) do
     func_name = "#{f_name()}[#{execution.id}][#{process_step.name}]"
     Logger.debug("#{func_name}: starting")
 
