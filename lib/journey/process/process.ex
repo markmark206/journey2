@@ -22,7 +22,7 @@ defmodule Journey.Process do
     itinerary
     |> prepend_with_start_time()
     |> Journey.ProcessCatalog.register()
-    |> tap(fn it -> update_all_executions_with_tasks(itinerary.process_id) end)
+    |> tap(fn it -> update_all_executions_with_tasks(it.process_id) end)
   end
 
   def start(itinerary) do
