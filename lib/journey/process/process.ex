@@ -41,7 +41,12 @@ defmodule Journey.Process do
 
     for execution <- Journey.Execution.Store.get_all_executions_for_process(process_id) do
       Logger.info("evaluating execution #{execution.id}")
-      Journey.Execution.Scheduler2.advance(execution)
+
+      execution
+      |> Journey.Execution.Scheduler2.get_schedulable_process_steps()
+      |> Enum.each(fn process_step ->
+        Journey.Execution.Scheduler2.try_scheduling_a_scheduled_step(execution, process_step)
+      end)
     end
   end
 
