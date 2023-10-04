@@ -191,6 +191,7 @@ defmodule Journey.Execution.Store do
       preload: [:computations]
     )
     |> Journey.Repo.all()
+    |> Enum.map(fn e -> cleanup_computations(e) end)
   end
 
   def mark_scheduled_computations_as_canceled(execution, step_name) do
