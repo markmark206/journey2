@@ -184,9 +184,8 @@ defmodule Journey.Execution.Store do
     end
   end
 
-  def get_all_executions_for_process(process_id) do
+  def get_all_executions_for_process() do
     from(ex in Journey.Schema.Execution,
-      where: ex.process_id == ^process_id,
       select: ex,
       preload: [:computations]
     )
