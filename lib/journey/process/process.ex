@@ -1,6 +1,8 @@
 defmodule Journey.Process do
   require Logger
 
+  alias Journey.Execution.Scheduler2
+
   defstruct [
     :process_id,
     :steps
@@ -22,7 +24,6 @@ defmodule Journey.Process do
     itinerary
     |> prepend_with_start_time()
     |> Journey.ProcessCatalog.register()
-    |> tap(fn it -> update_all_executions_with_tasks(it.process_id) end)
   end
 
   def start(itinerary) do
@@ -34,18 +35,19 @@ defmodule Journey.Process do
       |> Journey.Execution.set_value(:started_at, Journey.Utilities.curent_unix_time_sec())
   end
 
-  def update_all_executions_with_tasks(process_id) do
+  def migrate_itineraries() do
+    # TODO: only migrate registered graphs.
     # TODO: introduce the notion of process version, and only update the executions from older process ids.
     # TODO: add a test.
-    Logger.info("update_all_executions_with_tasks: for process '#{process_id}'")
+    Logger.info("update_all_executions_with_tasks")
 
-    for execution <- Journey.Execution.Store.get_all_executions_for_process(process_id) do
-      Logger.info("evaluating execution #{execution.id}")
+    for execution <- Journey.Execution.Store.get_all_executions_for_process() do
+      Logger.debug("attempting to schedule schedulable tasks for execution #{execution.id}")
 
       execution
-      |> Journey.Execution.Scheduler2.get_schedulable_process_steps()
+      |> Scheduler2.get_schedulable_process_steps()
       |> Enum.each(fn process_step ->
-        Journey.Execution.Scheduler2.try_scheduling_a_scheduled_step(execution, process_step)
+        Scheduler2.try_scheduling_a_scheduled_step(execution, process_step)
       end)
     end
   end

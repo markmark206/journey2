@@ -16,16 +16,23 @@ defmodule Journey.Application do
   end
 
   def start(_type, _args) do
-    children = [
-      # Starts a worker by calling: MyApp.Worker.start_link(arg)
-      # {MyApp.Worker, arg}
-      {Journey.Repo, []},
-      Journey.ProcessCatalog,
-      {Task,
-       fn ->
-         Journey.Execution.Daemons.delay_and_sweep_task(sweeper_period_seconds())
-       end}
-    ]
+    children =
+      [
+        # Starts a worker by calling: MyApp.Worker.start_link(arg)
+        # {MyApp.Worker, arg}
+        {Journey.Repo, []},
+        Journey.ProcessCatalog
+      ] ++
+        if Mix.env() == :test do
+          [
+            {Task,
+             fn ->
+               Journey.Execution.Daemons.delay_and_sweep_task(sweeper_period_seconds())
+             end}
+          ]
+        else
+          []
+        end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

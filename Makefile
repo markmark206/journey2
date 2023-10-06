@@ -50,7 +50,8 @@ livebook-run:
 pre-commit: build lint dialyzer test
 
 test:
-	mix test --cover --trace  --slowest 4 --warnings-as-errors
+	time mix test --cover --trace  --slowest 4 --warnings-as-errors || mix test --failed
+
 
 test-fast:
 	mix test --cover --trace  --slowest 4 --only fast:true --warnings-as-errors
